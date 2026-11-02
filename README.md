@@ -150,4 +150,9 @@ Normal tests use local fixtures and a mocked HTTP adapter. An optional real-prov
 
 Current boundaries: serial local execution; exact duplicate detection rather than semantic deduplication; no automatic rubric mining, production connectors, optimizer execution, OPE estimator, or production rollout. Monetary caps depend on a cooperating adapter, not interception of arbitrary user code. Comparison confidence intervals quantify variation across case groups, not uncertainty from repeated live judge sampling. The supplied cohort is too small to establish production effectiveness.
 
-No distribution license has been selected. Publication, real Health Tech mapping, and production thresholds remain pilot decisions.
+Real Health Tech mapping and production thresholds remain pilot decisions.
+
+## License
+
+Nodal Hindsight is licensed under the [Apache License 2.0](LICENSE).
+Copyright 2026 Nodal Data, Inc.
