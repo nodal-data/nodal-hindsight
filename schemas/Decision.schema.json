@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "ContextProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "decision_time_complete": {
+          "title": "Decision Time Complete",
+          "type": "boolean"
+        },
+        "history_timestamp_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "History Timestamp Path"
+        },
+        "snapshot_at": {
+          "title": "Snapshot At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot_at",
+        "decision_time_complete"
+      ],
+      "title": "ContextProvenance",
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "properties": {
+        "code_version": {
+          "minLength": 1,
+          "title": "Code Version",
+          "type": "string"
+        },
+        "model": {
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_version": {
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "prompt_version",
+        "code_version"
+      ],
+      "title": "Policy",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "additionalProperties": true,
+      "title": "Context",
+      "type": "object"
+    },
+    "context_provenance": {
+      "$ref": "#/$defs/ContextProvenance"
+    },
+    "decided_at": {
+      "title": "Decided At",
+      "type": "string"
+    },
+    "decision_id": {
+      "minLength": 1,
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "exposure": {
+      "enum": [
+        "shown",
+        "hidden",
+        "unknown"
+      ],
+      "title": "Exposure",
+      "type": "string"
+    },
+    "extensions": {
+      "additionalProperties": true,
+      "title": "Extensions",
+      "type": "object"
+    },
+    "group_id": {
+      "minLength": 1,
+      "title": "Group Id",
+      "type": "string"
+    },
+    "logging_policy": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Logging Policy"
+    },
+    "policy": {
+      "$ref": "#/$defs/Policy"
+    },
+    "record_type": {
+      "const": "decision",
+      "default": "decision",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "request_metadata": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Request Metadata"
+    },
+    "response_metadata": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Response Metadata"
+    },
+    "sampling": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sampling"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": true,
+      "title": "Source",
+      "type": "object"
+    },
+    "suggestion": {
+      "additionalProperties": true,
+      "title": "Suggestion",
+      "type": "object"
+    },
+    "tags": {
+      "additionalProperties": true,
+      "title": "Tags",
+      "type": "object"
+    },
+    "task": {
+      "minLength": 1,
+      "title": "Task",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision_id",
+    "task",
+    "group_id",
+    "decided_at",
+    "context",
+    "context_provenance",
+    "policy",
+    "suggestion",
+    "exposure"
+  ],
+  "title": "Decision",
+  "type": "object"
+}

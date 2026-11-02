@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+artifacts/
+data/
+.cache/
+.env
+.env.*
+!.env.example
+.DS_Store
+dist/
+
+# Local planning drafts; the public specification is spec.md.
+/specs/
+
+# Local credentials and agent configuration.
+.aws/
+.codex/
+.agents/
+*.pem
+*.key

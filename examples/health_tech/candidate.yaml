@@ -1,0 +1,8 @@
+model: synthetic-model-v1
+prompt_version: candidate-regression-demo-v1
+code_version: demo-v1
+timeout_seconds: 10
+max_calls: 100
+max_cases: 100
+cache: true
+cache_dir: .cache/hindsight/candidates

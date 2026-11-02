@@ -1,0 +1,86 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "attempts": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Attempts",
+      "type": "array"
+    },
+    "cache_hit": {
+      "default": false,
+      "title": "Cache Hit",
+      "type": "boolean"
+    },
+    "cache_read_seconds": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cache Read Seconds"
+    },
+    "candidate": {
+      "additionalProperties": true,
+      "title": "Candidate",
+      "type": "object"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "latency_seconds": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latency Seconds"
+    },
+    "output": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Output"
+    },
+    "status": {
+      "default": "success",
+      "enum": [
+        "success",
+        "timeout",
+        "invalid_output",
+        "error",
+        "budget_exhausted"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "usage": {
+      "additionalProperties": true,
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "required": [
+    "case_id"
+  ],
+  "title": "Prediction",
+  "type": "object"
+}

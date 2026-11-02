@@ -1,0 +1,73 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "attribution": {
+      "additionalProperties": true,
+      "title": "Attribution",
+      "type": "object"
+    },
+    "decision_id": {
+      "minLength": 1,
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "event_at": {
+      "title": "Event At",
+      "type": "string"
+    },
+    "event_id": {
+      "minLength": 1,
+      "title": "Event Id",
+      "type": "string"
+    },
+    "extensions": {
+      "additionalProperties": true,
+      "title": "Extensions",
+      "type": "object"
+    },
+    "group_id": {
+      "minLength": 1,
+      "title": "Group Id",
+      "type": "string"
+    },
+    "observed_at": {
+      "title": "Observed At",
+      "type": "string"
+    },
+    "outcome_type": {
+      "title": "Outcome Type",
+      "type": "string"
+    },
+    "record_type": {
+      "const": "outcome",
+      "default": "outcome",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": true,
+      "title": "Source",
+      "type": "object"
+    },
+    "value": {
+      "default": null,
+      "title": "Value"
+    }
+  },
+  "required": [
+    "event_id",
+    "decision_id",
+    "group_id",
+    "event_at",
+    "observed_at",
+    "outcome_type"
+  ],
+  "title": "Outcome",
+  "type": "object"
+}

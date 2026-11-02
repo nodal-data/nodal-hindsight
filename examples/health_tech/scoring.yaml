@@ -1,0 +1,9 @@
+judge:
+  provider: fixture
+  model: canned-responses-v1
+  adapter_version: '1'
+  max_calls: 100
+  cache_dir: .cache/hindsight/judges
+  default_response:
+    passed: true
+    reason: Synthetic canned response for exercising the interface; not a semantic assessment.

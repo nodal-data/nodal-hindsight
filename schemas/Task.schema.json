@@ -1,0 +1,142 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "composition": {
+      "additionalProperties": true,
+      "title": "Composition",
+      "type": "object"
+    },
+    "constraints": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Constraints",
+      "type": "array"
+    },
+    "context_rules": {
+      "additionalProperties": true,
+      "title": "Context Rules",
+      "type": "object"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "extensions": {
+      "additionalProperties": true,
+      "title": "Extensions",
+      "type": "object"
+    },
+    "field_roles": {
+      "additionalProperties": {
+        "enum": [
+          "categorical",
+          "set",
+          "ranked_list",
+          "prose"
+        ],
+        "type": "string"
+      },
+      "title": "Field Roles",
+      "type": "object"
+    },
+    "gates": {
+      "additionalProperties": true,
+      "title": "Gates",
+      "type": "object"
+    },
+    "human_action_semantics": {
+      "additionalProperties": true,
+      "title": "Human Action Semantics",
+      "type": "object"
+    },
+    "input_schema": {
+      "additionalProperties": true,
+      "title": "Input Schema",
+      "type": "object"
+    },
+    "label_policy": {
+      "additionalProperties": true,
+      "title": "Label Policy",
+      "type": "object"
+    },
+    "outcome_policy": {
+      "additionalProperties": true,
+      "title": "Outcome Policy",
+      "type": "object"
+    },
+    "output_schema": {
+      "additionalProperties": true,
+      "title": "Output Schema",
+      "type": "object"
+    },
+    "record_type": {
+      "const": "task",
+      "default": "task",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "redaction": {
+      "additionalProperties": true,
+      "title": "Redaction",
+      "type": "object"
+    },
+    "rubrics": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rubrics",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scorers": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Scorers",
+      "type": "array"
+    },
+    "slices": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Slices",
+      "type": "array"
+    },
+    "split_policy": {
+      "additionalProperties": true,
+      "title": "Split Policy",
+      "type": "object"
+    },
+    "task": {
+      "minLength": 1,
+      "title": "Task",
+      "type": "string"
+    },
+    "version": {
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task",
+    "version",
+    "input_schema",
+    "output_schema",
+    "field_roles",
+    "split_policy",
+    "scorers"
+  ],
+  "title": "Task",
+  "type": "object"
+}

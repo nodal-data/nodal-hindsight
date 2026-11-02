@@ -1,0 +1,197 @@
+{
+  "$defs": {
+    "MetricResult": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "direction": {
+          "default": "higher",
+          "enum": [
+            "higher",
+            "lower"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "eligible": {
+          "title": "Eligible",
+          "type": "boolean"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "feedback": {
+          "title": "Feedback",
+          "type": "string"
+        },
+        "field": {
+          "title": "Field",
+          "type": "string"
+        },
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Passed"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "scored",
+            "inapplicable",
+            "error",
+            "insufficient_evidence"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "version": {
+          "default": "1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric",
+        "field",
+        "value",
+        "status",
+        "eligible",
+        "feedback",
+        "reason"
+      ],
+      "title": "MetricResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "case_version": {
+      "title": "Case Version",
+      "type": "string"
+    },
+    "composite_required": {
+      "default": false,
+      "title": "Composite Required",
+      "type": "boolean"
+    },
+    "constraints": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Constraints",
+      "type": "array"
+    },
+    "exposure": {
+      "title": "Exposure",
+      "type": "string"
+    },
+    "gate": {
+      "enum": [
+        "pass",
+        "fail",
+        "insufficient_evidence"
+      ],
+      "title": "Gate",
+      "type": "string"
+    },
+    "group_id": {
+      "title": "Group Id",
+      "type": "string"
+    },
+    "labels": {
+      "additionalProperties": true,
+      "title": "Labels",
+      "type": "object"
+    },
+    "metrics": {
+      "items": {
+        "$ref": "#/$defs/MetricResult"
+      },
+      "title": "Metrics",
+      "type": "array"
+    },
+    "prediction_status": {
+      "title": "Prediction Status",
+      "type": "string"
+    },
+    "resources": {
+      "additionalProperties": true,
+      "title": "Resources",
+      "type": "object"
+    },
+    "score": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Score"
+    },
+    "tags": {
+      "additionalProperties": true,
+      "title": "Tags",
+      "type": "object"
+    },
+    "valid": {
+      "title": "Valid",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "case_id",
+    "case_version",
+    "group_id",
+    "valid",
+    "metrics",
+    "score",
+    "gate",
+    "constraints",
+    "tags",
+    "exposure",
+    "labels",
+    "prediction_status"
+  ],
+  "title": "Verdict",
+  "type": "object"
+}

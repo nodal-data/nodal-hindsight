@@ -1,0 +1,194 @@
+{
+  "$defs": {
+    "Label": {
+      "additionalProperties": false,
+      "properties": {
+        "eligible": {
+          "title": "Eligible",
+          "type": "boolean"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "subtype": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtype"
+        },
+        "tier": {
+          "enum": [
+            "Gold",
+            "Silver",
+            "Bronze",
+            "Weak",
+            "Unknown"
+          ],
+          "title": "Tier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tier",
+        "eligible",
+        "reason"
+      ],
+      "title": "Label",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "acceptable": {
+      "additionalProperties": true,
+      "title": "Acceptable",
+      "type": "object"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "correction_group": {
+      "title": "Correction Group",
+      "type": "string"
+    },
+    "decided_at": {
+      "title": "Decided At",
+      "type": "string"
+    },
+    "decision_id": {
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "exposure": {
+      "title": "Exposure",
+      "type": "string"
+    },
+    "feedback": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Feedback",
+      "type": "array"
+    },
+    "group_id": {
+      "title": "Group Id",
+      "type": "string"
+    },
+    "input": {
+      "additionalProperties": true,
+      "title": "Input",
+      "type": "object"
+    },
+    "labels": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Label"
+      },
+      "title": "Labels",
+      "type": "object"
+    },
+    "negatives": {
+      "additionalProperties": true,
+      "title": "Negatives",
+      "type": "object"
+    },
+    "outcome_status": {
+      "title": "Outcome Status",
+      "type": "string"
+    },
+    "provenance": {
+      "additionalProperties": true,
+      "title": "Provenance",
+      "type": "object"
+    },
+    "references": {
+      "additionalProperties": true,
+      "title": "References",
+      "type": "object"
+    },
+    "review_flags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Review Flags",
+      "type": "array"
+    },
+    "rubric_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Rubric Ids",
+      "type": "array"
+    },
+    "split": {
+      "enum": [
+        "train",
+        "dev",
+        "test",
+        "calibration"
+      ],
+      "title": "Split",
+      "type": "string"
+    },
+    "suggestion": {
+      "additionalProperties": true,
+      "title": "Suggestion",
+      "type": "object"
+    },
+    "tags": {
+      "additionalProperties": true,
+      "title": "Tags",
+      "type": "object"
+    },
+    "task": {
+      "title": "Task",
+      "type": "string"
+    },
+    "task_version": {
+      "title": "Task Version",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "version",
+    "task",
+    "task_version",
+    "decision_id",
+    "group_id",
+    "decided_at",
+    "split",
+    "input",
+    "references",
+    "labels",
+    "exposure",
+    "feedback",
+    "provenance",
+    "suggestion",
+    "tags",
+    "rubric_ids",
+    "outcome_status",
+    "correction_group"
+  ],
+  "title": "EvalCase",
+  "type": "object"
+}

@@ -1,0 +1,104 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "acceptable": {
+      "additionalProperties": true,
+      "title": "Acceptable",
+      "type": "object"
+    },
+    "decision_id": {
+      "minLength": 1,
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "disposition": {
+      "enum": [
+        "approve",
+        "exclude",
+        "negative"
+      ],
+      "title": "Disposition",
+      "type": "string"
+    },
+    "event_at": {
+      "title": "Event At",
+      "type": "string"
+    },
+    "event_id": {
+      "minLength": 1,
+      "title": "Event Id",
+      "type": "string"
+    },
+    "extensions": {
+      "additionalProperties": true,
+      "title": "Extensions",
+      "type": "object"
+    },
+    "fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Fields",
+      "type": "array"
+    },
+    "group_id": {
+      "minLength": 1,
+      "title": "Group Id",
+      "type": "string"
+    },
+    "negatives": {
+      "additionalProperties": true,
+      "title": "Negatives",
+      "type": "object"
+    },
+    "observed_at": {
+      "title": "Observed At",
+      "type": "string"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "record_type": {
+      "const": "review",
+      "default": "review",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "references": {
+      "additionalProperties": true,
+      "title": "References",
+      "type": "object"
+    },
+    "reviewer": {
+      "minLength": 1,
+      "title": "Reviewer",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": true,
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "required": [
+    "event_id",
+    "decision_id",
+    "group_id",
+    "event_at",
+    "observed_at",
+    "reviewer",
+    "disposition",
+    "fields",
+    "reason"
+  ],
+  "title": "ReviewDecision",
+  "type": "object"
+}

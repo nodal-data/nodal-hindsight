@@ -1,0 +1,134 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "adapter_version": {
+      "default": "1",
+      "title": "Adapter Version",
+      "type": "string"
+    },
+    "bounded_adapter": {
+      "default": false,
+      "title": "Bounded Adapter",
+      "type": "boolean"
+    },
+    "cache": {
+      "default": false,
+      "title": "Cache",
+      "type": "boolean"
+    },
+    "cache_dir": {
+      "default": ".cache/hindsight/candidates",
+      "title": "Cache Dir",
+      "type": "string"
+    },
+    "code_version": {
+      "default": "unknown",
+      "title": "Code Version",
+      "type": "string"
+    },
+    "concurrency": {
+      "const": 1,
+      "default": 1,
+      "title": "Concurrency",
+      "type": "integer"
+    },
+    "cost_upper_bound_per_call": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Upper Bound Per Call"
+    },
+    "max_calls": {
+      "default": 1000,
+      "minimum": 0,
+      "title": "Max Calls",
+      "type": "integer"
+    },
+    "max_cases": {
+      "default": 1000,
+      "minimum": 0,
+      "title": "Max Cases",
+      "type": "integer"
+    },
+    "max_cost_usd": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Cost Usd"
+    },
+    "max_tokens": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Tokens"
+    },
+    "model": {
+      "default": "unknown",
+      "title": "Model",
+      "type": "string"
+    },
+    "parameters": {
+      "additionalProperties": true,
+      "title": "Parameters",
+      "type": "object"
+    },
+    "prompt_version": {
+      "default": "unknown",
+      "title": "Prompt Version",
+      "type": "string"
+    },
+    "retain_output": {
+      "default": true,
+      "title": "Retain Output",
+      "type": "boolean"
+    },
+    "retries": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Retries",
+      "type": "integer"
+    },
+    "timeout_seconds": {
+      "default": 30,
+      "exclusiveMinimum": 0,
+      "title": "Timeout Seconds",
+      "type": "number"
+    },
+    "token_upper_bound_per_call": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Token Upper Bound Per Call"
+    }
+  },
+  "title": "RunConfig",
+  "type": "object"
+}

@@ -1,0 +1,16 @@
+provider: fixture
+model: canned-calibration-v1
+responses:
+  5766292af18609f1fcaaa99d7332086c456d7764831b421acf96700be94f3bae:
+    passed: true
+    reason: Synthetic fixture response, not a semantic model judgment.
+  0efc65ed32063b35737eae0de84c6783a231742ad2cab7557d9ed4ea4de08bf0:
+    passed: false
+    reason: Synthetic fixture response, not a semantic model judgment.
+max_calls: 10
+calibration_policy:
+  min_positive: 10
+  min_negative: 10
+  min_tpr: 0.8
+  min_tnr: 0.8
+  uncertainty: lower_bound

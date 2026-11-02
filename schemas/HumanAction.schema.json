@@ -1,0 +1,121 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "actor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Actor"
+    },
+    "attribution": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Attribution"
+    },
+    "decision_id": {
+      "minLength": 1,
+      "title": "Decision Id",
+      "type": "string"
+    },
+    "event_at": {
+      "title": "Event At",
+      "type": "string"
+    },
+    "event_id": {
+      "minLength": 1,
+      "title": "Event Id",
+      "type": "string"
+    },
+    "extensions": {
+      "additionalProperties": true,
+      "title": "Extensions",
+      "type": "object"
+    },
+    "group_id": {
+      "minLength": 1,
+      "title": "Group Id",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "accepted",
+        "edited",
+        "overridden",
+        "independent",
+        "rejected",
+        "escalated",
+        "none",
+        "unknown"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "observation_complete": {
+      "default": true,
+      "title": "Observation Complete",
+      "type": "boolean"
+    },
+    "observed_at": {
+      "title": "Observed At",
+      "type": "string"
+    },
+    "output": {
+      "additionalProperties": true,
+      "title": "Output",
+      "type": "object"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "record_type": {
+      "const": "human_action",
+      "default": "human_action",
+      "title": "Record Type",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": true,
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "required": [
+    "event_id",
+    "decision_id",
+    "group_id",
+    "event_at",
+    "observed_at",
+    "kind"
+  ],
+  "title": "HumanAction",
+  "type": "object"
+}

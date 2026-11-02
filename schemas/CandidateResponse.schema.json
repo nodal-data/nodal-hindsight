@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "output": {
+      "additionalProperties": true,
+      "title": "Output",
+      "type": "object"
+    },
+    "usage": {
+      "additionalProperties": true,
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "required": [
+    "output"
+  ],
+  "title": "CandidateResponse",
+  "type": "object"
+}

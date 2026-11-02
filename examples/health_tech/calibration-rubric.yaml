@@ -1,0 +1,25 @@
+id: health_tech.message_grounded.v1
+version: '1'
+status: draft
+calibration_status: uncalibrated
+field: message
+criterion: Does the message avoid claiming a time, resolution, or commitment is confirmed
+  when the input only proposes it?
+permitted_input_fields:
+- prior_state
+- history
+use_reference: false
+applicability:
+  reference_field: message
+  condition: non_null
+response_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - passed
+  - reason
+  properties:
+    passed:
+      type: boolean
+    reason:
+      type: string

@@ -1,0 +1,95 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "details": {
+      "additionalProperties": true,
+      "title": "Details",
+      "type": "object"
+    },
+    "direction": {
+      "default": "higher",
+      "enum": [
+        "higher",
+        "lower"
+      ],
+      "title": "Direction",
+      "type": "string"
+    },
+    "eligible": {
+      "title": "Eligible",
+      "type": "boolean"
+    },
+    "evidence_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Ids",
+      "type": "array"
+    },
+    "feedback": {
+      "title": "Feedback",
+      "type": "string"
+    },
+    "field": {
+      "title": "Field",
+      "type": "string"
+    },
+    "metric": {
+      "title": "Metric",
+      "type": "string"
+    },
+    "passed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Passed"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "scored",
+        "inapplicable",
+        "error",
+        "insufficient_evidence"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Value"
+    },
+    "version": {
+      "default": "1",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "metric",
+    "field",
+    "value",
+    "status",
+    "eligible",
+    "feedback",
+    "reason"
+  ],
+  "title": "MetricResult",
+  "type": "object"
+}

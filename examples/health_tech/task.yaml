@@ -1,0 +1,2 @@
+# Single source of truth: JSONL task catalog, resolved relative to this file.
+task_catalog: tasks.jsonl
