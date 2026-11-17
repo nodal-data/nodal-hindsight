@@ -91,3 +91,44 @@ def test_generated_schema_consistency():
             read_json(Path("schemas") / f"{model.__name__}.schema.json")
             == model.model_json_schema()
         )
+
+
+def test_run_resolves_candidate_from_working_directory(tmp_path, monkeypatch):
+    # The installed console script does not put the working directory on sys.path.
+    examples = Path("examples/health_tech").resolve()
+    (tmp_path / "local_candidate.py").write_text(
+        "def decide(context, run_context):\n"
+        '    return {"next_action": "wait", "follow_ups": [], "message": None}\n'
+    )
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    def invoke(*args):
+        r = runner.invoke(app, list(map(str, args)))
+        assert r.exit_code == 0, r.output + str(r.exception)
+
+    invoke(
+        "compile",
+        "--traces",
+        examples / "decisions.jsonl",
+        "--events",
+        examples / "events.jsonl",
+        "--config",
+        examples / "task.yaml",
+        "--as-of",
+        "2026-10-01T00:00:00Z",
+        "--out",
+        "dataset",
+    )
+    invoke(
+        "run",
+        "--dataset",
+        "dataset",
+        "--candidate",
+        "local_candidate:decide",
+        "--run-config",
+        examples / "baseline.yaml",
+        "--out",
+        "run",
+    )
+    assert read_json(tmp_path / "run/run-manifest.json")["coverage"] == 1.0
