@@ -176,7 +176,8 @@ Can request classes be derived, so a router can be certified class by class?
 - Candidate fields are queue, category, tag, intent, topic, reason code. Ask
   when more than one exists: present each with its cardinality and coverage.
 - Do not read request content to judge whether classes look sensible. That is
-  taxonomy work for a later step with its own consent.
+  taxonomy work for a later step. Consent to view sample rows during
+  discovery (`references/content-samples.md`) does not cover it.
 
 ## Record types and the verdict
 

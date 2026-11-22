@@ -9,6 +9,7 @@
     "workflow",
     "as_of",
     "sources",
+    "content_access",
     "checks",
     "record_types",
     "verdict",
@@ -20,6 +21,15 @@
     "workflow": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "as_of": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
     "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}},
+    "content_access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consent", "rows_viewed"],
+      "properties": {
+        "consent": {"enum": ["aggregates-only", "samples-approved"]},
+        "rows_viewed": {"type": "integer", "minimum": 0, "maximum": 20}
+      }
+    },
     "checks": {
       "type": "array",
       "minItems": 10,

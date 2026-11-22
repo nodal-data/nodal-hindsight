@@ -3,7 +3,8 @@
 Use this when the workflow history is in CSV, TSV or JSONL files on this
 machine. `scripts/readiness.py` reads the files and computes every aggregate
 locally. Row content never enters the conversation, so do not open the files
-any other way.
+any other way. The one exception is the `sample` command, which needs the
+user's consent first: see `references/content-samples.md`.
 
 Commands below write `<skill-dir>` for the directory holding `SKILL.md`.
 

@@ -8,8 +8,9 @@ description: Assess whether a human-in-the-loop AI workflow's stored history (AI
 You are assessing one human-in-the-loop AI workflow: an AI makes a suggestion, a
 person accepts, edits or overrides it, and later an outcome shows how it went.
 Hindsight turns that history into evaluation cases. Your job is to find out how
-much of the history is usable, using aggregates only, and to write a readiness
-report. You do not extract, map or load the data; that is a later step.
+much of the history is usable and to write a readiness report. You work from
+aggregates by default; a small sample of rows is allowed only after the user
+consents. You do not extract, map or load the data; that is a later step.
 
 Resolve every resource from the directory containing this loaded `SKILL.md`. The
 examples below write `<skill-dir>` for that directory.
@@ -18,11 +19,18 @@ examples below write `<skill-dir>` for that directory.
 
 These hold for the whole session, including when the user asks otherwise.
 
-- **Aggregates only.** Never select, print, sample or quote a free-text column:
-  the suggestion, the final output, request content, input context, reasons,
-  notes. No `SELECT *`, no sample rows, no "just five rows to see the shape".
-  Do not open an export with a file reader, `head` or `cat`. These fields are
-  likely to hold protected health information. Column names and types are fine.
+- **Aggregates by default.** Do not select, print, sample or quote a free-text
+  column: the suggestion, the final output, request content, input context,
+  reasons, notes. No `SELECT *`. Do not open an export with a file reader,
+  `head` or `cat`. These fields can hold protected health information, and
+  anything you read is sent to the AI provider behind this session. Column
+  names and types are fine.
+- **Sample rows need consent.** The one way to view row content is the
+  consent gate in `references/content-samples.md`: the user confirms this
+  agent is approved to read row content for this workflow, and then you may
+  view a few truncated values of named columns, in the session only. Without
+  a clear yes, stay on aggregates. With or without consent, no row content is
+  ever written to the profile, the report or any other file.
 - **Status values are the one exception.** You may list the values of a column
   only when the user has named it as a category, action-kind or exposure field,
   and it passes the shape test in the source reference (at most 50 distinct
@@ -121,6 +129,11 @@ the probes settled.
    window.** Do not ask. Record a code finding in `answers` with
    `"source": "code"` and the file it came from.
 
+When a few example rows would resolve an ambiguity better than a question
+(which of two columns is the suggestion, whether a category field holds real
+request types), read `references/content-samples.md` and ask its consent
+question once. On no, or not sure, carry on with choice questions.
+
 A bare "is that right?" means you skipped the ladder. Ask one question at a
 time. Record each answer in the profile's `answers` list with the check ID, the
 question, the option chosen (the label, never pasted row content) and the
@@ -137,7 +150,8 @@ python3 <skill-dir>/scripts/readiness.py check \
 ```
 
 `build` applies the verdict rules and writes `readiness.json` and
-`readiness.md`. Do not edit those two files by hand; change the profile and
+`readiness.md`. The report states whether sample rows were viewed, from
+`content_access` in the profile. Do not edit those two files by hand; change the profile and
 rebuild. If you cannot run the script in this session, say so, apply the
 rules in `references/checks.md` yourself, and mark the verdict provisional.
 While a question from step 3 is open, say which verdict each answer leads to. `--blind-sample-rate` (default `0.10`)
@@ -168,5 +182,5 @@ Then tell the user, in this order:
 - Certify anything. Mined accept-history is descriptive. Certification needs a
   blind-reviewed or outcome-supported cohort.
 - Map the history to Hindsight's record format, load it, or build a request
-  taxonomy. Those belong to a later step and reading content for taxonomy work
-  needs its own consent.
+  taxonomy. Those belong to a later step. Consent to view a few sample rows
+  here does not cover reading content in bulk for taxonomy work.

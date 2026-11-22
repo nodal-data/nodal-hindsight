@@ -9,10 +9,11 @@ Subcommands:
   profile-files   compute the aggregate profile from CSV/JSONL exports
   build           apply the verdict rules and write readiness.json + readiness.md
   check           validate a readiness.json
+  sample          show a few truncated values of named columns, after the user consents
 
-Nothing here prints row content. Free-text columns are only tested for presence and
-compared by fingerprint; the output holds counts, rates, column names, low-cardinality
-category values, and reviewer ordinals.
+Only `sample` prints row content, and only with --consent-given. Everywhere else,
+free-text columns are tested for presence and compared by fingerprint; the output holds
+counts, rates, column names, low-cardinality category values, and reviewer ordinals.
 """
 import argparse
 import csv
@@ -66,6 +67,11 @@ STATUSES = ["present", "partial", "missing"]
 VERDICTS = ["mine-history", "partial", "log-forward-only"]
 SOURCE_TYPES = ["repository", "warehouse", "files", "unsupported"]
 ANSWER_SOURCES = ["user", "code"]
+CONSENTS = ["aggregates-only", "samples-approved"]
+SAMPLE_ROWS_PER_LOOK = 5
+SAMPLE_ROWS_PER_SESSION = 20
+SAMPLE_COLUMNS_PER_LOOK = 3
+SAMPLE_MAX_CHARS = 300
 
 CHECKS = [
     ("suggestion_separate", "AI suggestion stored separately from the final human output"),
@@ -228,6 +234,7 @@ def empty_profile(workflow="workflow-name", as_of=None):
         "workflow": workflow,
         "as_of": as_of or date.today().isoformat(),
         "sources": [],
+        "content_access": {"consent": "aggregates-only", "rows_viewed": 0},
     }
     for section, fields in PROFILE_FIELDS.items():
         profile[section] = {name: None for name in fields}
@@ -293,11 +300,55 @@ def _field_problem(kind, value):
     return None
 
 
+def content_access(profile):
+    """Consent and rows viewed, defaulting to aggregates only."""
+    access = profile.get("content_access") or {}
+    return {
+        "consent": access.get("consent", "aggregates-only"),
+        "rows_viewed": access.get("rows_viewed", 0),
+    }
+
+
+def _content_access_problems(access):
+    if access is None:
+        return []
+    if not isinstance(access, dict):
+        return ["content_access must be an object"]
+    problems = [
+        f"content_access: unknown key: {key}"
+        for key in sorted(set(access) - {"consent", "rows_viewed"})
+    ]
+    consent = access.get("consent", "aggregates-only")
+    if consent not in CONSENTS:
+        problems.append(f"content_access.consent must be one of {', '.join(CONSENTS)}")
+    viewed = access.get("rows_viewed", 0)
+    if isinstance(viewed, bool) or not isinstance(viewed, int) or viewed < 0:
+        problems.append("content_access.rows_viewed must be a whole number, 0 or more")
+    elif viewed > SAMPLE_ROWS_PER_SESSION:
+        problems.append(
+            f"content_access.rows_viewed is over the limit of {SAMPLE_ROWS_PER_SESSION} "
+            "sample rows per session"
+        )
+    elif viewed and consent != "samples-approved":
+        problems.append(
+            "content_access.rows_viewed must be 0 unless consent is samples-approved"
+        )
+    return problems
+
+
 def validate_profile(profile):
     problems = []
     if not isinstance(profile, dict):
         return ["profile must be a JSON object"]
-    allowed = {"profile_version", "workflow", "as_of", "sources", "answers", *PROFILE_FIELDS}
+    allowed = {
+        "profile_version",
+        "workflow",
+        "as_of",
+        "sources",
+        "content_access",
+        "answers",
+        *PROFILE_FIELDS,
+    }
     for key in sorted(set(profile) - allowed):
         problems.append(f"unknown key: {key}")
     if profile.get("profile_version") != PROFILE_VERSION:
@@ -328,6 +379,7 @@ def validate_profile(profile):
                 problems.append(f"{where}.objects must be a list of strings")
             if "note" in source and not isinstance(source["note"], str):
                 problems.append(f"{where}.note must be a string")
+    problems += _content_access_problems(profile.get("content_access"))
     for section, fields in PROFILE_FIELDS.items():
         data = profile.get(section, {})
         if data is None:
@@ -752,6 +804,7 @@ def build_readiness(profile, blind_sample_rate=0.10):
         "workflow": profile["workflow"],
         "as_of": profile["as_of"],
         "sources": sources,
+        "content_access": content_access(profile),
         "checks": checks,
         "record_types": types,
         "verdict": roll_up(types),
@@ -802,13 +855,28 @@ def _table(header, rows):
     return lines
 
 
+def _content_line(access):
+    if access["consent"] != "samples-approved":
+        return "Aggregates only; no row content was read."
+    if not access["rows_viewed"]:
+        return (
+            "The user approved viewing sample rows, but none was viewed. "
+            "This report holds aggregates only."
+        )
+    return (
+        f"With the user's approval, {access['rows_viewed']} sample rows were viewed in the "
+        "session to resolve ambiguity. This report holds aggregates only; no row content "
+        "is recorded here."
+    )
+
+
 def render_markdown(readiness):
     volume = readiness["volume"]
     estimate = readiness["label_estimate"]
     out = [
         f"# Workflow readiness: {readiness['workflow']}",
         "",
-        f"As of {readiness['as_of']}. Aggregates only; no row content was read into this report.",
+        f"As of {readiness['as_of']}. {_content_line(readiness['content_access'])}",
         "",
         f"## Verdict: `{readiness['verdict']}`",
         "",
@@ -1533,6 +1601,59 @@ def list_columns(path, value_columns=()):
 
 
 # ---------------------------------------------------------------------------
+# sample: the only command that shows row content, and only after consent
+
+
+def sample_rows(path, columns, rows=SAMPLE_ROWS_PER_LOOK):
+    """Up to `rows` rows spread across the file, named columns only, values truncated."""
+    if not columns:
+        raise UsageError("sample needs at least one --column")
+    if len(columns) > SAMPLE_COLUMNS_PER_LOOK:
+        raise UsageError(f"sample takes at most {SAMPLE_COLUMNS_PER_LOOK} columns at a time")
+    if not 1 <= rows <= SAMPLE_ROWS_PER_LOOK:
+        raise UsageError(f"--rows must be between 1 and {SAMPLE_ROWS_PER_LOOK}")
+
+    def filled(row):
+        return any(not _empty(_get(row, column)) for column in columns)
+
+    names = {name for row in read_rows(path) for name, _ in _flatten(row)}
+    absent = sorted(set(columns) - names)
+    if absent:
+        raise UsageError(f"{path.name}: no column named {', '.join(absent)}")
+    total = sum(1 for row in read_rows(path) if filled(row))
+    take = min(rows, total)
+    wanted = {(index * total) // take for index in range(take)} if take else set()
+    shown = []
+    position = 0
+    for row in read_rows(path):
+        if not filled(row):
+            continue
+        if position in wanted:
+            entry = {}
+            for column in columns:
+                value = _get(row, column)
+                if _empty(value):
+                    entry[column] = None
+                    continue
+                text = value if isinstance(value, str) else json.dumps(value, sort_keys=True)
+                if len(text) > SAMPLE_MAX_CHARS:
+                    text = text[:SAMPLE_MAX_CHARS] + " [truncated]"
+                entry[column] = text
+            shown.append(entry)
+        position += 1
+    return {
+        "file": path.name,
+        "columns": list(columns),
+        "rows_shown": len(shown),
+        "rows": shown,
+        "reminder": (
+            "Add rows_shown to content_access.rows_viewed in the profile. "
+            "Do not copy these values into any file or answer."
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
 # CLI
 
 
@@ -1589,6 +1710,18 @@ def main(argv=None):
     check = commands.add_parser("check", help="validate a readiness.json")
     check.add_argument("readiness")
 
+    sample = commands.add_parser(
+        "sample", help="show a few truncated values of named columns, after consent"
+    )
+    sample.add_argument("file", type=Path)
+    sample.add_argument("--column", action="append", default=[], metavar="COLUMN")
+    sample.add_argument("--rows", type=int, default=SAMPLE_ROWS_PER_LOOK)
+    sample.add_argument(
+        "--consent-given",
+        action="store_true",
+        help="the user has approved this agent reading row content for this workflow",
+    )
+
     args = parser.parse_args(argv)
     try:
         if args.command == "template":
@@ -1634,6 +1767,14 @@ def main(argv=None):
                     f"({check_result['answered_by']})"
                 )
             print(f"wrote {out / 'readiness.json'} and {out / 'readiness.md'}")
+        elif args.command == "sample":
+            if not args.consent_given:
+                raise UsageError(
+                    "sample shows row content. Ask the user the consent question in "
+                    "references/content-samples.md first; on yes, pass --consent-given."
+                )
+            shown = sample_rows(args.file, args.column, args.rows)
+            _write(json.dumps(shown, indent=2) + "\n", None)
         elif args.command == "check":
             problems = check_readiness(_load(args.readiness))
             if problems:

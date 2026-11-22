@@ -545,3 +545,77 @@ def test_references_named_in_the_skill_exist_and_cover_all_checks():
     assert {check["id"] for check in readiness.build_readiness(healthy_profile())["checks"]} == set(
         SCHEMA["$defs"]["check"]["properties"]["id"]["enum"]
     )
+
+
+def test_sample_refuses_without_consent_and_is_bounded_with_it():
+    decisions = FIXTURES / "decisions.csv"
+    refused = run("sample", decisions, "--column", "ai_draft")
+    assert refused.returncode != 0
+    assert "consent" in refused.stderr
+    assert "SENTINEL" not in refused.stdout + refused.stderr
+
+    shown = run("sample", decisions, "--column", "ai_draft", "--rows", 3, "--consent-given")
+    assert shown.returncode == 0, shown.stderr
+    result = json.loads(shown.stdout)
+    assert result["rows_shown"] == 3
+    assert all(set(row) == {"ai_draft"} for row in result["rows"])
+    assert "SENTINEL" in shown.stdout  # consent really does show the named column
+    assert "MESSAGE" not in shown.stdout  # and nothing from the columns that were not named
+
+    too_many = run("sample", decisions, "--column", "ai_draft", "--rows", 6, "--consent-given")
+    assert too_many.returncode != 0
+    too_wide = run(
+        "sample", decisions, "--consent-given",
+        "--column", "ai_draft", "--column", "message_body", "--column", "queue", "--column", "id",
+    )  # fmt: skip
+    assert too_wide.returncode != 0
+    absent = run("sample", decisions, "--column", "no_such", "--consent-given")
+    assert absent.returncode != 0
+    for failed in (too_many, too_wide, absent):
+        assert "SENTINEL" not in failed.stdout + failed.stderr
+
+
+def test_sample_truncates_long_values(tmp_path):
+    path = tmp_path / "long.jsonl"
+    path.write_text(json.dumps({"id": "d1", "draft": {"text": "x" * 1000}}) + "\n")
+    rows = readiness.sample_rows(path, ["draft.text"])["rows"]
+    assert rows == [{"draft.text": "x" * 300 + " [truncated]"}]
+
+
+def test_report_states_content_access_and_profile_enforces_consent():
+    profile = healthy_profile()
+    result = readiness.build_readiness(profile)
+    assert result["content_access"] == {"consent": "aggregates-only", "rows_viewed": 0}
+    assert "no row content was read" in readiness.render_markdown(result)
+
+    profile["content_access"] = {"consent": "samples-approved", "rows_viewed": 8}
+    result = readiness.build_readiness(profile)
+    jsonschema.validate(result, SCHEMA)
+    assert not readiness.check_readiness(result)
+    assert "8 sample rows were viewed" in readiness.render_markdown(result)
+
+    profile["content_access"] = {"consent": "aggregates-only", "rows_viewed": 5}
+    with pytest.raises(readiness.UsageError, match="unless consent is samples-approved"):
+        readiness.build_readiness(profile)
+    profile["content_access"] = {"consent": "samples-approved", "rows_viewed": 21}
+    with pytest.raises(readiness.UsageError, match="over the limit"):
+        readiness.build_readiness(profile)
+
+    del profile["content_access"]  # profiles written before the field existed still build
+    assert readiness.build_readiness(profile)["content_access"]["consent"] == "aggregates-only"
+
+
+def test_consent_reference_probes_are_bounded_selects():
+    text = (SKILL / "references" / "content-samples.md").read_text()
+    blocks = re.findall(r"```sql\n(.*?)```", text, re.S)
+    assert len(blocks) == 2
+    for block in blocks:
+        statement = block.strip()
+        assert statement.startswith("SELECT")
+        assert ";" not in statement
+        assert not FORBIDDEN_SQL.search(statement)
+        assert not re.search(r"SELECT\s+\*", statement, re.I)
+        assert statement.endswith("LIMIT 5")
+        assert statement.count("LEFT(") == statement.count("AS sample_")
+    skill = (SKILL / "SKILL.md").read_text()
+    assert "references/content-samples.md" in skill

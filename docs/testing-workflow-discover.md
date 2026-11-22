@@ -102,7 +102,9 @@ What to expect:
    warehouse it runs aggregate `SELECT` queries.
 4. It asks a few choice questions where the evidence is ambiguous, for example
    which column is the suggestion, or whether the stored output is what the
-   reviewer saw.
+   reviewer saw. If seeing a few example rows would help, it asks once whether
+   the agent is approved to read row content. Answer yes only if your company
+   allows that data to go to the AI provider behind Codex.
 5. It writes three files and summarises the verdict:
 
 ```text
@@ -113,10 +115,15 @@ hindsight-discovery/<workflow>/readiness.md
 
 ## 5. What to check
 
-- **No row content appeared.** Codex should never print message bodies, sample
-  rows or reviewer IDs, and should not open the export files directly. Search
-  the three output files for a phrase you know is in the data; it should not
-  be there.
+- **No row content appeared without your consent.** Codex should not print
+  message bodies or sample rows, and should not open the export files
+  directly, unless it first asked whether the agent is approved to read row
+  content and you said yes. Try answering "not sure": it should stay on
+  aggregates. After a yes it may view at most 5 rows per look and 20 in the
+  session, of named columns only, and the report states how many it viewed.
+- **Nothing from the rows reached the files.** Search the three output files
+  for a phrase you know is in the data; it should not be there, whether or not
+  you consented. Reviewer IDs should never appear anywhere.
 - **The verdict follows from the checks.** Read `readiness.md`: the verdict is
   one of `mine-history`, `partial`, `log-forward-only`, with all ten checks
   listed and a status for Decision, HumanAction and Outcome.
@@ -136,8 +143,8 @@ hindsight-discovery/<workflow>/readiness.md
 
 ## 6. Send back
 
-The three files in `hindsight-discovery/<workflow>/` hold aggregates only, so
-they are safe to share. Useful notes to add: how long the run took, any
+The three files in `hindsight-discovery/<workflow>/` hold aggregates only,
+even if you approved sample rows, so they are safe to share. Useful notes to add: how long the run took, any
 question that was confusing, and any point where Codex tried to read row
 content or could not run a step.
 

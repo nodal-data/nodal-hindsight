@@ -74,9 +74,14 @@ Layout:
 
 Skill rules, which the tests enforce where they can:
 
-- Aggregates only. No output of the script or the skill may contain free-text row
-  content. Category values are listed only for a column the user names and only when
-  it behaves like a status field; reviewers appear as ordinals.
+- Aggregates by default. No file the script or the skill writes may contain free-text
+  row content. Category values are listed only for a column the user names and only
+  when it behaves like a status field; reviewers appear as ordinals.
+- Row content is viewed only through the consent gate in
+  `references/content-samples.md`: the `sample` command (refuses without
+  `--consent-given`) or that file's one warehouse probe, at most 5 rows per look and
+  20 per session, cut at 300 characters, session only. The profile records the consent
+  and the rows viewed in `content_access`.
 - Read-only. Every fenced `sql` block in `references/source-warehouse.md` is a single
   `SELECT` or `WITH` statement. The workflow's repository is read, never changed or run.
 - No credentials are requested, read or stored.

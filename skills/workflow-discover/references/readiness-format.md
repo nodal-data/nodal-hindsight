@@ -8,7 +8,8 @@ Three files are written to `hindsight-discovery/<workflow>/`:
 | `readiness.json` | `build` | Checks, record-type statuses, verdict, volume, label estimate |
 | `readiness.md` | `build` | The same, for a person to read |
 
-None of them holds row content.
+None of them holds row content, including when the user has consented to
+sample rows being viewed in the session.
 
 ## `profile.json`
 
@@ -29,6 +30,7 @@ Rates are fractions from 0 to 1.
 | `workflow` | Lowercase slug, for example `prior-auth-review` |
 | `as_of` | `YYYY-MM-DD`, the day the probes ran |
 | `sources` | One entry per source: `type` (`repository`, `warehouse`, `files`, `unsupported`), `location` (repository, account and database, or a directory), `objects` (code files, tables or export files), optional `note` |
+| `content_access` | `consent` (`aggregates-only`, the default, or `samples-approved`) and `rows_viewed` (sample rows viewed in the session, at most 20; must be `0` without consent). See `references/content-samples.md` |
 | `answers` | One entry per settled question: `check` (a check ID), `question`, `answer` (the option chosen, or the code finding with its file), `status` (`present`, `partial`, `missing`), optional `source` (`user`, the default, or `code`). At most one per check; it overrides the probe status |
 
 ### `decisions`
@@ -89,7 +91,7 @@ verdict follows from the record types.
 | Field | Meaning |
 |---|---|
 | `schema_version` | `"0.1"` |
-| `workflow`, `as_of`, `sources` | Copied from the profile |
+| `workflow`, `as_of`, `sources`, `content_access` | Copied from the profile |
 | `checks` | The ten checks in order: `id`, `status` (`present`, `partial`, `missing`), `evidence`, `answered_by` (`probe`, `user`, `code`, `unresolved`) |
 | `record_types` | `decision`, `human_action`, `outcome`, each with `status` (`minable`, `partial`, `not-minable`) and `reasons` |
 | `verdict` | `mine-history`, `partial` or `log-forward-only` |

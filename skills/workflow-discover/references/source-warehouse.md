@@ -21,6 +21,8 @@ token.
 
 Ask the user which schema or dataset holds the workflow, then read column
 names and types from the catalog. This returns metadata, never row content.
+None of the probes in this file returns row content; the only probe that does
+is in `references/content-samples.md` and needs the user's consent first.
 
 Snowflake:
 
