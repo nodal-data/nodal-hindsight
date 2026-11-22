@@ -28,8 +28,8 @@ Rates are fractions from 0 to 1.
 | `profile_version` | `"0.1"` |
 | `workflow` | Lowercase slug, for example `prior-auth-review` |
 | `as_of` | `YYYY-MM-DD`, the day the probes ran |
-| `sources` | One entry per source: `type` (`warehouse`, `files`, `unsupported`), `location` (account and database, or a directory), `objects` (tables or files), optional `note` |
-| `answers` | One entry per answered question: `check` (a check ID), `question`, `answer` (the option chosen), `status` (`present`, `partial`, `missing`). At most one per check; it overrides the probe status |
+| `sources` | One entry per source: `type` (`repository`, `warehouse`, `files`, `unsupported`), `location` (repository, account and database, or a directory), `objects` (code files, tables or export files), optional `note` |
+| `answers` | One entry per settled question: `check` (a check ID), `question`, `answer` (the option chosen, or the code finding with its file), `status` (`present`, `partial`, `missing`), optional `source` (`user`, the default, or `code`). At most one per check; it overrides the probe status |
 
 ### `decisions`
 
@@ -90,7 +90,7 @@ verdict follows from the record types.
 |---|---|
 | `schema_version` | `"0.1"` |
 | `workflow`, `as_of`, `sources` | Copied from the profile |
-| `checks` | The ten checks in order: `id`, `status` (`present`, `partial`, `missing`), `evidence`, `answered_by` (`probe`, `user`, `unresolved`) |
+| `checks` | The ten checks in order: `id`, `status` (`present`, `partial`, `missing`), `evidence`, `answered_by` (`probe`, `user`, `code`, `unresolved`) |
 | `record_types` | `decision`, `human_action`, `outcome`, each with `status` (`minable`, `partial`, `not-minable`) and `reasons` |
 | `verdict` | `mine-history`, `partial` or `log-forward-only` |
 | `volume` | Decision count, date range, weekly median, accept-unchanged rate and basis, `kind_counts`, `reviewers`, `classes` (the category field), `flags` |

@@ -64,7 +64,8 @@ KINDS = [
 ]
 STATUSES = ["present", "partial", "missing"]
 VERDICTS = ["mine-history", "partial", "log-forward-only"]
-SOURCE_TYPES = ["warehouse", "files", "unsupported"]
+SOURCE_TYPES = ["repository", "warehouse", "files", "unsupported"]
+ANSWER_SOURCES = ["user", "code"]
 
 CHECKS = [
     ("suggestion_separate", "AI suggestion stored separately from the final human output"),
@@ -350,7 +351,7 @@ def validate_profile(profile):
             if not isinstance(answer, dict):
                 problems.append(f"{where} must be an object")
                 continue
-            for key in sorted(set(answer) - {"check", "question", "answer", "status"}):
+            for key in sorted(set(answer) - {"check", "question", "answer", "status", "source"}):
                 problems.append(f"{where}: unknown key: {key}")
             if answer.get("check") not in CHECK_IDS:
                 problems.append(f"{where}.check must be one of {', '.join(CHECK_IDS)}")
@@ -362,6 +363,8 @@ def validate_profile(profile):
             for key in ("question", "answer"):
                 if not isinstance(answer.get(key), str) or not answer.get(key).strip():
                     problems.append(f"{where}.{key} must be a non-empty string")
+            if answer.get("source", "user") not in ANSWER_SOURCES:
+                problems.append(f"{where}.source must be one of {', '.join(ANSWER_SOURCES)}")
     return problems
 
 
@@ -597,10 +600,11 @@ def evaluate_checks(profile):
     for answer in profile.get("answers") or []:
         result = results[answer["check"]]
         result["status"] = answer["status"]
-        result["answered_by"] = "user"
+        result["answered_by"] = answer.get("source", "user")
+        label = "From the code" if result["answered_by"] == "code" else "Answered"
         result["evidence"] = (
             f"{result['evidence']} Asked: {answer['question'].strip()} "
-            f"Answered: {answer['answer'].strip()}"
+            f"{label}: {answer['answer'].strip()}"
         )
     return [results[check_id] for check_id in CHECK_IDS]
 
@@ -811,10 +815,10 @@ def render_markdown(readiness):
         VERDICT_TEXT[readiness["verdict"]],
         "",
     ]
-    if all(source["type"] == "unsupported" for source in readiness["sources"]):
+    if all(source["type"] in ("unsupported", "repository") for source in readiness["sources"]):
         out += [
-            "No supported source was inspected. This verdict reflects that nothing could be "
-            "measured, not that the history is unusable.",
+            "No stored history was measured. This verdict reflects that, not that the history "
+            "is unusable.",
             "",
         ]
     names = {"decision": "Decision", "human_action": "HumanAction", "outcome": "Outcome"}

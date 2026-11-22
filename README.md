@@ -43,8 +43,8 @@ Install the plugin:
 
 Then ask Claude to assess a workflow, for example "check whether our prior-auth review history can be used with Hindsight". The skill:
 
-1. Asks which workflow it is and where its history lives: a warehouse (Snowflake, BigQuery) or CSV/JSONL exports. Other sources are recorded as not yet supported.
-2. Inspects that source with the connection the session already has, using aggregates only. It never selects or prints message bodies or other free text, and it runs read-only queries.
+1. Asks which workflow it is and for the repository that runs it (a local path or a URL to clone), then reads the code to find where the suggestion, the human action and the outcome are written.
+2. Measures the stored history in a warehouse (Snowflake, BigQuery) or CSV/JSONL exports, with the connection the session already has and aggregates only. It never selects or prints message bodies or other free text, and it runs read-only queries. Other stores are recorded as not yet supported.
 3. Asks choice-based questions only where the evidence is ambiguous.
 4. Writes `hindsight-discovery/<workflow>/readiness.md` and `readiness.json` in the current directory.
 

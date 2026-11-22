@@ -8,17 +8,20 @@ need adjusting:
 
 - This repo ships a Claude Code plugin only. There is no Codex plugin manifest,
   so on Codex the skill is installed by copying its folder (step 2).
-- Nobody has looked at where that Hermes job keeps its history. Step 3 finds
-  out. The skill reads a warehouse or CSV/JSONL exports; anything else is
-  recorded as "not yet supported".
+- Nobody has looked at where that Hermes job keeps its history. The skill
+  finds out by reading the job's repository (step 3). It then measures a
+  warehouse or CSV/JSONL exports; anything else is recorded as "not yet
+  supported".
 
-## 1. Get the branch
+## 1. Get the code
 
 ```bash
 git clone https://github.com/nodal-data/nodal-hindsight.git
 cd nodal-hindsight
-git switch workflow-discover
 ```
+
+This uses `main`. If you already have a clone, run `git switch main` and
+`git pull`.
 
 Python 3.11 or later is the only requirement. The skill's script uses the
 standard library, so there is nothing to install.
@@ -45,34 +48,41 @@ point it at the file instead. Start Codex anywhere and say:
 
 That works on any agent that can read files and run `python3`.
 
-## 3. Find where the job's history lives
+## 3. Have the job's repository ready
 
-Before starting the skill, answer three questions about the daily job. The
-skill needs all three kinds of record, and the answers decide which path you
-take.
+The skill starts from the repository that runs the daily job, because the code
+shows where each record is written. Have one of these to hand:
 
-| Record | Question for this job |
+- the path to the repository, if it is already on that machine, or
+- its Git URL, so the skill can clone it with the credentials the machine
+  already has.
+
+The skill reads code and configuration only. It does not run the job, change
+the repository, or open secret files.
+
+From the code it works out where three kinds of record live:
+
+| Record | What it looks for |
 |---|---|
-| AI suggestion | Where is what Hermes produced on each run stored? |
-| Human action | Does a person accept, edit or reject that output? Where is that recorded? |
-| Outcome | Is there a later signal that the output was right or wrong? Where? |
+| AI suggestion | Where what Hermes produced on each run is stored |
+| Human action | Whether a person accepts, edits or rejects that output, and where that is recorded |
+| Outcome | Any later signal that the output was right or wrong |
 
-Then pick the path:
+It then measures the stored history:
 
-- **The records are in tables** in Snowflake or BigQuery, and Codex on that
-  machine can already query them: use the warehouse path.
-- **The records are in files**, or can be exported: use the file path. Put
-  CSV or JSONL files in one folder, ideally one file each for decisions,
-  human actions and outcomes. One wide file also works. Each row needs a run
-  or decision ID so the three can be joined.
-- **The records exist only in Hermes's own session or log store**: export
-  them to JSONL first, one line per run, with at least an ID, a timestamp and
-  the output. Without an export the skill records the source as unsupported
-  and measures nothing.
+- **In tables** in Snowflake or BigQuery, if Codex on that machine can already
+  query them.
+- **In files** (CSV or JSONL), if that is where the job writes or if you
+  export them. Each row needs a run or decision ID so the three kinds of
+  record can be joined.
+- **Only in Hermes's own session or log store**: the skill will tell you which
+  export it needs (JSONL, one line per run with an ID, a timestamp and the
+  output). Without one it records the store as unsupported and reports from
+  the code alone.
 
-If no person reviews the job's output, say so when asked. The report will then
-show the human-action checks as missing. That is a correct result, and it
-tells you what to start logging.
+If no person reviews the job's output, the report shows the human-action
+checks as missing. That is a correct result, and it tells you what to start
+logging.
 
 ## 4. Run the discovery
 
@@ -84,14 +94,16 @@ folder is fine; no Git repo is needed), and ask:
 
 What to expect:
 
-1. It asks which workflow this is and where the history lives. Answer with the
-   path from step 3.
-2. It inspects the source. For files it runs `list-columns` and
-   `profile-files`; for a warehouse it runs aggregate `SELECT` queries.
-3. It asks a few choice questions where the evidence is ambiguous, for example
+1. It asks which workflow this is, then for the repository: give the path or
+   the URL from step 3.
+2. It reads the code, tells you where it thinks the records live, and asks you
+   to confirm where to measure them.
+3. It measures. For files it runs `list-columns` and `profile-files`; for a
+   warehouse it runs aggregate `SELECT` queries.
+4. It asks a few choice questions where the evidence is ambiguous, for example
    which column is the suggestion, or whether the stored output is what the
    reviewer saw.
-4. It writes three files and summarises the verdict:
+5. It writes three files and summarises the verdict:
 
 ```text
 hindsight-discovery/<workflow>/profile.json
@@ -117,6 +129,9 @@ hindsight-discovery/<workflow>/readiness.md
 
 - **The questions were real choices**, with the evidence in the question, not
   "is that right?".
+- **Code findings are attributed.** A check settled from the repository shows
+  `code` in the "Answered by" column and names the file.
+- **The repository is unchanged**: `git status` in it shows nothing new.
 - **Accept rates are not described as accuracy** anywhere in the summary.
 
 ## 6. Send back

@@ -48,7 +48,7 @@
       "additionalProperties": false,
       "required": ["type", "location", "objects"],
       "properties": {
-        "type": {"enum": ["warehouse", "files", "unsupported"]},
+        "type": {"enum": ["repository", "warehouse", "files", "unsupported"]},
         "location": {"type": "string"},
         "objects": {"type": "array", "items": {"type": "string"}},
         "note": {"type": "string"}
@@ -75,7 +75,7 @@
         },
         "status": {"enum": ["present", "partial", "missing"]},
         "evidence": {"type": "string"},
-        "answered_by": {"enum": ["probe", "user", "unresolved"]}
+        "answered_by": {"enum": ["probe", "user", "code", "unresolved"]}
       }
     },
     "record_type": {

@@ -30,6 +30,8 @@ These hold for the whole session, including when the user asks otherwise.
   reviewers appear as `reviewer_1`, `reviewer_2`.
 - **Read-only.** Every warehouse statement is a single `SELECT` or `WITH`
   query. Never DDL, DML, grants or procedure calls. Never write to the source.
+  In the workflow's repository, read code and configuration only: no edits, no
+  commits, no running the workflow, no opening data files or secret files.
 - **Bounded.** Every probe has a date window (default: the last 180 days) and
   returns one row, or a grouped result with a `LIMIT`.
 - **No credentials.** Use the connection the session already has. Never ask
@@ -41,11 +43,30 @@ These hold for the whole session, including when the user asks otherwise.
 
 ## Flow
 
-### 1. Which workflow, and where does its history live?
+### 1. Which workflow, and where is its code?
 
 Ask one question, then the next. First: which workflow, in the user's words.
 Turn the name into a lowercase slug such as `prior-auth-review`; this is
-`<workflow>` below. Then ask where its history lives, as a choice:
+`<workflow>` below.
+
+Then ask for the repository that runs the workflow, as a choice:
+
+- **It is on this machine**: ask for the path.
+- **It needs cloning**: ask for the URL and where to put it.
+- **No repository is available**: go to step 2 and ask where the history
+  lives.
+
+With a repository, read `references/source-repo.md` and trace one run through
+the code before asking anything else. The code shows where the suggestion,
+the human action and the outcome are written, so you can tell the user where
+the history lives instead of asking.
+
+### 2. Measure the stored history
+
+The code says where records are written; only the data says how complete they
+are. Confirm the store with the user as a choice, naming what the code showed
+("the code writes drafts to `ai_drafts` in Snowflake; measure there, or from
+an export?"):
 
 - **A data warehouse** (Snowflake, BigQuery) this session can already query.
 - **File exports** (CSV or JSONL) on this machine.
@@ -56,9 +77,8 @@ Turn the name into a lowercase slug such as `prior-auth-review`; this is
 `unsupported` with a note saying what would be needed (for example "an export
 of traces to JSONL with the suggestion, the reviewer action and a timestamp"),
 and ask whether a warehouse copy or a file export exists. If neither does,
-still write the report; it says that nothing was measured.
-
-### 2. Inspect the source
+still write the report from what the code showed; it says that no stored
+history was measured.
 
 Read the one reference that matches, when you reach this step:
 
@@ -88,7 +108,7 @@ the probes settled.
 **Selection beats confirmation.** Before asking anything, run this ladder:
 
 1. **Two or more readings fit the evidence.** Present them as a choice, with
-   the evidence in the question: "`ai_drafts.body` equals `messages.body` in
+   the evidence (a measurement, or the file in the repository) in the question: "`ai_drafts.body` equals `messages.body` in
    81% of rows. Is `ai_drafts` (a) the suggestion as the reviewer saw it, (b) a
    later regeneration, or (c) unknown?" Each option is a distinct reading that
    the evidence supports. Always include "unknown" when it is an honest answer.
@@ -97,7 +117,9 @@ the probes settled.
    confirm a paragraph. Ask the single fact the reading depends on: "Is
    `reviewed_by` the person who made the decision, or the queue it was
    assigned to?"
-3. **Settled by a probe.** Do not ask.
+3. **Settled by a probe, or by code that has not changed during the
+   window.** Do not ask. Record a code finding in `answers` with
+   `"source": "code"` and the file it came from.
 
 A bare "is that right?" means you skipped the ladder. Ask one question at a
 time. Record each answer in the profile's `answers` list with the check ID, the

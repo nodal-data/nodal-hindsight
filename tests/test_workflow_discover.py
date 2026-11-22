@@ -162,6 +162,32 @@ def test_equality_alone_is_ambiguous_until_answered():
     assert readiness.build_readiness(profile)["verdict"] == "log-forward-only"
 
 
+def test_code_evidence_settles_a_check_and_is_attributed_to_code():
+    profile = healthy_profile()
+    exposure_missing(profile)
+    profile["sources"].insert(
+        0, {"type": "repository", "location": "acme/review-agent", "objects": ["app/review.py"]}
+    )
+    profile["answers"] = [
+        {
+            "check": "exposure_known",
+            "question": "Is the draft always rendered before the reviewer can act?",
+            "answer": "app/review.py renders the draft unconditionally; unchanged in git since 2026-01.",
+            "status": "present",
+            "source": "code",
+        }
+    ]
+    result = readiness.build_readiness(profile)
+    check = result["checks"][2]
+    assert (check["status"], check["answered_by"]) == ("present", "code")
+    assert "From the code:" in check["evidence"]
+    assert result["verdict"] == "mine-history"
+    jsonschema.validate(result, SCHEMA)
+    profile["answers"][0]["source"] = "guess"
+    with pytest.raises(readiness.UsageError, match="source must be one of"):
+        readiness.build_readiness(profile)
+
+
 def test_unmeasured_profile_is_unresolved_not_usable():
     profile = readiness.empty_profile("crm-replies", "2026-11-22")
     profile["sources"] = [
@@ -175,7 +201,7 @@ def test_unmeasured_profile_is_unresolved_not_usable():
     result = readiness.build_readiness(profile)
     assert result["verdict"] == "log-forward-only"
     assert {check["answered_by"] for check in result["checks"]} == {"unresolved"}
-    assert "No supported source was inspected" in readiness.render_markdown(result)
+    assert "No stored history was measured" in readiness.render_markdown(result)
 
 
 def test_report_never_calls_accept_history_correctness():

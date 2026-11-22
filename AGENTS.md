@@ -78,7 +78,7 @@ Skill rules, which the tests enforce where they can:
   content. Category values are listed only for a column the user names and only when
   it behaves like a status field; reviewers appear as ordinals.
 - Read-only. Every fenced `sql` block in `references/source-warehouse.md` is a single
-  `SELECT` or `WITH` statement.
+  `SELECT` or `WITH` statement. The workflow's repository is read, never changed or run.
 - No credentials are requested, read or stored.
 - Accept-history is never described as correctness.
 - The verdict rules live in `scripts/readiness.py` and are documented in

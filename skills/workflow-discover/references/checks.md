@@ -1,7 +1,8 @@
 # The ten checks
 
 Each check is reported as `present`, `partial` or `missing`, with its evidence
-and who settled it: `probe`, `user` (an answer from step 3) or `unresolved`.
+and who settled it: `probe`, `user` (an answer from step 3), `code` (a finding
+in the workflow's repository, see `references/source-repo.md`) or `unresolved`.
 `scripts/readiness.py build` applies the rules below from the profile; this
 file tells you what each check needs and which questions resolve ambiguity.
 
