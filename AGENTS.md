@@ -47,6 +47,61 @@ conversation. Do not assume previous test or demo artifacts prove current checks
   regressing candidate, with no network calls.
 - `examples/health_tech/baseline.yaml`: example execution configuration.
 - `tests/`: automated tests; `scripts/demo.py`: end-to-end demonstration.
+- `skills/`, `.claude-plugin/`, `quality/plugin-evals/`: the onboarding plugin (see below).
+
+## Onboarding plugin (`workflow-discover`)
+
+The repo is also a Claude Code plugin named `nodal-hindsight`. It ships one skill,
+`workflow-discover`, which checks whether a workflow's stored history can be mined
+and writes a readiness report. The skill is independent of the Python package: its
+script is standard library only and must keep working when the skill directory is
+copied somewhere on its own.
+
+Layout:
+
+- `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`: plugin and
+  single-plugin marketplace manifests. Name and version must match in both.
+- `skills/workflow-discover/SKILL.md`: instructions. `references/`: the ten checks,
+  one probe reference per source type, and the output formats.
+  `assets/readiness.schema.json`: the `readiness.json` contract.
+  `scripts/readiness.py`: `template`, `list-columns`, `profile-files`, `build`, `check`.
+- `.claude/skills/workflow-discover`: symlink for in-repo development.
+- `scripts/lint_skills.py`: skill lint (name equals folder, description at most 300
+  characters, no absolute host paths, reference links resolve).
+- `tests/test_workflow_discover.py`, `tests/fixtures/workflow_discover/`: tests and
+  raw fixtures with planted free-text sentinels.
+- `quality/plugin-evals/`: plugin eval cases (`prompt.md` plus `graders/*.md`).
+
+Skill rules, which the tests enforce where they can:
+
+- Aggregates only. No output of the script or the skill may contain free-text row
+  content. Category values are listed only for a column the user names and only when
+  it behaves like a status field; reviewers appear as ordinals.
+- Read-only. Every fenced `sql` block in `references/source-warehouse.md` is a single
+  `SELECT` or `WITH` statement.
+- No credentials are requested, read or stored.
+- Accept-history is never described as correctness.
+- The verdict rules live in `scripts/readiness.py` and are documented in
+  `references/checks.md`. Change both together.
+
+Versions: the plugin version in the two manifests is plugin semver and is independent
+of the Python package version in `pyproject.toml`. Bump it when the skill's behaviour
+or the `readiness.json` schema changes.
+
+Not done yet: there are no Codex manifests. `.agents/` is gitignored in this repo, so
+a Codex repo marketplace file cannot be committed until that changes.
+
+Validation:
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run python scripts/lint_skills.py
+claude plugin validate .
+claude plugin eval . --eval-dir quality/plugin-evals --ablation with-without --judge-model sonnet --no-publish
+```
+
+The eval run makes model calls; it is not part of the test suite.
 
 ## Commands
 

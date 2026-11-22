@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nodal-data/nodal-hindsight/skills/workflow-discover/assets/readiness.schema.json",
+  "title": "Hindsight workflow readiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workflow",
+    "as_of",
+    "sources",
+    "checks",
+    "record_types",
+    "verdict",
+    "volume",
+    "label_estimate"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "workflow": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "as_of": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}},
+    "checks": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {"$ref": "#/$defs/check"}
+    },
+    "record_types": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "human_action", "outcome"],
+      "properties": {
+        "decision": {"$ref": "#/$defs/record_type"},
+        "human_action": {"$ref": "#/$defs/record_type"},
+        "outcome": {"$ref": "#/$defs/record_type"}
+      }
+    },
+    "verdict": {"enum": ["mine-history", "partial", "log-forward-only"]},
+    "volume": {"$ref": "#/$defs/volume"},
+    "label_estimate": {"$ref": "#/$defs/label_estimate"}
+  },
+  "$defs": {
+    "rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "count": {"type": ["integer", "null"], "minimum": 0},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "location", "objects"],
+      "properties": {
+        "type": {"enum": ["warehouse", "files", "unsupported"]},
+        "location": {"type": "string"},
+        "objects": {"type": "array", "items": {"type": "string"}},
+        "note": {"type": "string"}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "evidence", "answered_by"],
+      "properties": {
+        "id": {
+          "enum": [
+            "suggestion_separate",
+            "suggestion_not_overwritten",
+            "exposure_known",
+            "timestamps",
+            "reviewer_id",
+            "policy_identity",
+            "frozen_context",
+            "outcome_join",
+            "volume_accept_rate",
+            "request_type_signal"
+          ]
+        },
+        "status": {"enum": ["present", "partial", "missing"]},
+        "evidence": {"type": "string"},
+        "answered_by": {"enum": ["probe", "user", "unresolved"]}
+      }
+    },
+    "record_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasons"],
+      "properties": {
+        "status": {"enum": ["minable", "partial", "not-minable"]},
+        "reasons": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "volume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decisions",
+        "weeks_observed",
+        "weekly_median",
+        "first_decided_at",
+        "last_decided_at",
+        "accept_unchanged_rate",
+        "accept_unchanged_basis",
+        "kind_counts",
+        "reviewers",
+        "classes",
+        "flags"
+      ],
+      "properties": {
+        "decisions": {"$ref": "#/$defs/count"},
+        "weeks_observed": {"$ref": "#/$defs/count"},
+        "weekly_median": {"type": ["number", "null"], "minimum": 0},
+        "first_decided_at": {"type": ["string", "null"]},
+        "last_decided_at": {"type": ["string", "null"]},
+        "accept_unchanged_rate": {"$ref": "#/$defs/rate"},
+        "accept_unchanged_basis": {"enum": ["kind", "text-equality", null]},
+        "kind_counts": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "accepted": {"type": "integer", "minimum": 0},
+            "edited": {"type": "integer", "minimum": 0},
+            "overridden": {"type": "integer", "minimum": 0},
+            "independent": {"type": "integer", "minimum": 0},
+            "rejected": {"type": "integer", "minimum": 0},
+            "escalated": {"type": "integer", "minimum": 0},
+            "none": {"type": "integer", "minimum": 0},
+            "unknown": {"type": "integer", "minimum": 0}
+          }
+        },
+        "reviewers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reviewer", "actions"],
+            "properties": {
+              "reviewer": {"type": "string", "pattern": "^reviewer_[0-9]+$"},
+              "actions": {"type": "integer", "minimum": 0},
+              "accept_unchanged_rate": {"$ref": "#/$defs/rate"},
+              "median_seconds_to_action": {"type": ["number", "null"]}
+            }
+          }
+        },
+        "classes": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["field", "coverage", "cardinality", "values", "suppressed"],
+          "properties": {
+            "field": {"type": ["string", "null"]},
+            "coverage": {"$ref": "#/$defs/rate"},
+            "cardinality": {"$ref": "#/$defs/count"},
+            "values": {
+              "type": ["array", "null"],
+              "maxItems": 50,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["value", "count"],
+                "properties": {
+                  "value": {"type": "string"},
+                  "count": {"type": "integer", "minimum": 0}
+                }
+              }
+            },
+            "suppressed": {"type": ["string", "null"]}
+          }
+        },
+        "flags": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "label_estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["basis", "blind_sample_rate", "weekly_volume", "rows", "per_class"],
+      "properties": {
+        "basis": {"type": "string"},
+        "blind_sample_rate": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        "weekly_volume": {"type": ["number", "null"], "minimum": 0},
+        "rows": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["max_error_rate", "labels_needed", "weeks"],
+            "properties": {
+              "max_error_rate": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+              "labels_needed": {"type": "integer", "minimum": 1},
+              "weeks": {"type": ["integer", "null"], "minimum": 1}
+            }
+          }
+        },
+        "per_class": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "weekly_volume", "weeks"],
+            "properties": {
+              "value": {"type": "string"},
+              "weekly_volume": {"type": "number", "minimum": 0},
+              "weeks": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {"type": ["integer", "null"], "minimum": 1}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

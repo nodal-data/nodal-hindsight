@@ -1,0 +1,6 @@
+{"decision_id": "d01", "happened_at": "2026-09-10T14:00:00Z", "recorded_at": "2026-09-10T15:00:00Z", "result": "PHI-SENTINEL-OUTCOME detail"}
+{"decision_id": "d02", "happened_at": "2026-09-18T14:00:00Z", "recorded_at": "2026-09-18T15:00:00Z", "result": "PHI-SENTINEL-OUTCOME detail"}
+{"decision_id": "d03", "happened_at": null, "recorded_at": "2026-09-25T15:00:00Z", "result": "PHI-SENTINEL-OUTCOME detail"}
+{"decision_id": "d04", "happened_at": "2026-09-18T14:00:00Z", "recorded_at": "2026-09-18T15:00:00Z", "result": "PHI-SENTINEL-OUTCOME detail"}
+{"decision_id": "d04", "happened_at": "2026-10-17T14:00:00Z", "recorded_at": "2026-10-17T15:00:00Z", "result": "PHI-SENTINEL-OUTCOME detail"}
+{"decision_id": "d99", "happened_at": "2026-09-03T23:00:00Z", "recorded_at": "2026-09-04T00:00:00Z", "result": "PHI-SENTINEL-OUTCOME detail"}

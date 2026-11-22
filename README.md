@@ -31,6 +31,25 @@ Inspect:
 - `artifacts/demo/review/corrections.jsonl`: training-only human corrections and draft diffs.
 - `artifacts/demo/calibration/report.md`: calibration confusion counts and uncertainty.
 
+## Onboarding: discover
+
+Before any history is compiled, the `workflow-discover` skill checks whether a workflow's stored history is usable. It runs in Claude Code and needs no `hindsight` install, no setup step and no Git repo.
+
+Install the plugin:
+
+```text
+/plugin install nodal-hindsight --marketplace nodal-data/nodal-hindsight
+```
+
+Then ask Claude to assess a workflow, for example "check whether our prior-auth review history can be used with Hindsight". The skill:
+
+1. Asks which workflow it is and where its history lives: a warehouse (Snowflake, BigQuery) or CSV/JSONL exports. Other sources are recorded as not yet supported.
+2. Inspects that source with the connection the session already has, using aggregates only. It never selects or prints message bodies or other free text, and it runs read-only queries.
+3. Asks choice-based questions only where the evidence is ambiguous.
+4. Writes `hindsight-discovery/<workflow>/readiness.md` and `readiness.json` in the current directory.
+
+The report covers ten checks (suggestion stored separately, not overwritten, exposure, timestamps, reviewer ID, policy identity, frozen context, outcome join, volume and accept rate, request-type signal), a status for each record type (Decision, HumanAction, Outcome), and one verdict: `mine-history`, `partial` or `log-forward-only`. Accept rates in the report are descriptive; they are not evidence that suggestions were correct.
+
 ## Commands
 
 | Command | Purpose |

@@ -1,0 +1,14 @@
+{
+  "name": "nodal-hindsight",
+  "version": "0.1.0",
+  "description": "Onboard a human-in-the-loop AI workflow to Nodal Hindsight: check whether its stored history can be mined, using aggregates only.",
+  "author": {
+    "name": "Nodal Data",
+    "url": "https://github.com/nodal-data"
+  },
+  "homepage": "https://github.com/nodal-data/nodal-hindsight",
+  "repository": "https://github.com/nodal-data/nodal-hindsight",
+  "license": "Apache-2.0",
+  "keywords": ["evaluation", "human-in-the-loop", "onboarding", "readiness"],
+  "skills": "./skills/"
+}
