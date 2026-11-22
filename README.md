@@ -54,6 +54,8 @@ uv run hindsight run --dataset artifacts/dataset --split dev --candidate example
 uv run hindsight evaluate --dataset artifacts/dataset --run artifacts/baseline-run --scoring-config examples/health_tech/scoring.yaml --out artifacts/baseline-eval
 ```
 
+`--candidate` takes an importable `module:function`. Modules are resolved from the working directory first, so run from the directory that contains your package (the repository root for the example above).
+
 Use `evaluate --source logged --split dev` for the historical baseline, or `evaluate --predictions file.jsonl --split dev` for external predictions. `run --evaluate --scoring-config ...` writes a separate sibling directory ending in `-eval`. `--resume` reuses completed compatible cases; `--overwrite` explicitly replaces an artifact directory.
 
 Test-split run, evaluation, and export require `--allow-test`. Do not reuse an inspected test set for iterative selection. Calibration groups are configured in `split_policy.calibration_groups`, must come from the training interval, and are removed from training/evaluation cohorts.

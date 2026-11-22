@@ -23,6 +23,19 @@ from nodal_hindsight.ingest import parse_model, validate_schema
 from nodal_hindsight.schemas import RunConfig
 
 
+def locate_module(name):
+    """Find a candidate module the way the worker does: working directory first.
+
+    The installed console script does not put the working directory on sys.path.
+    """
+    cwd = os.getcwd()
+    sys.path.insert(0, cwd)
+    try:
+        return importlib.util.find_spec(name)
+    finally:
+        sys.path.remove(cwd)
+
+
 def run_candidate(
     dataset, split, candidate, run_config, out, allow_test=False, resume=False, overwrite=False
 ):
@@ -39,7 +52,7 @@ def run_candidate(
     if ":" not in candidate:
         raise HindsightError("candidate must be a trusted module:function import")
     try:
-        module = importlib.util.find_spec(candidate.split(":", 1)[0])
+        module = locate_module(candidate.split(":", 1)[0])
         module_hash = digest(Path(module.origin).read_text()) if module and module.origin else None
     except (ImportError, OSError, AttributeError):
         raise HindsightError("cannot locate candidate module") from None
