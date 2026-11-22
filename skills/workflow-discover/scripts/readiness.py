@@ -67,6 +67,9 @@ STATUSES = ["present", "partial", "missing"]
 VERDICTS = ["mine-history", "partial", "log-forward-only"]
 SOURCE_TYPES = ["repository", "warehouse", "files", "unsupported"]
 ANSWER_SOURCES = ["user", "code"]
+OUTCOME_KINDS = ["user-response", "downstream-status", "later-review", "business-result"]
+OUTCOME_ARRIVES = ["every-decision", "only-on-problems", "some-decisions", "unknown"]
+OUTCOME_SIGNALS_MAX = 5
 CONSENTS = ["aggregates-only", "samples-approved"]
 SAMPLE_ROWS_PER_LOOK = 5
 SAMPLE_ROWS_PER_SESSION = 20
@@ -235,6 +238,7 @@ def empty_profile(workflow="workflow-name", as_of=None):
         "as_of": as_of or date.today().isoformat(),
         "sources": [],
         "content_access": {"consent": "aggregates-only", "rows_viewed": 0},
+        "outcome_signals": None,
     }
     for section, fields in PROFILE_FIELDS.items():
         profile[section] = {name: None for name in fields}
@@ -336,6 +340,59 @@ def _content_access_problems(access):
     return problems
 
 
+def _outcome_signal_problems(signals):
+    if signals is None:
+        return []
+    if not isinstance(signals, list):
+        return ["outcome_signals must be a list, or null when the outcome step was skipped"]
+    problems = []
+    if len(signals) > OUTCOME_SIGNALS_MAX:
+        problems.append(f"outcome_signals holds at most {OUTCOME_SIGNALS_MAX} entries")
+    required = ("description", "location")
+    optional = ("join_key", "typical_delay")
+    for index, signal in enumerate(signals):
+        where = f"outcome_signals[{index}]"
+        if not isinstance(signal, dict):
+            problems.append(f"{where} must be an object")
+            continue
+        allowed = {"kind", "arrives", "source", *required, *optional}
+        for key in sorted(set(signal) - allowed):
+            problems.append(f"{where}: unknown key: {key}")
+        if signal.get("kind") not in OUTCOME_KINDS:
+            problems.append(f"{where}.kind must be one of {', '.join(OUTCOME_KINDS)}")
+        if signal.get("arrives") not in OUTCOME_ARRIVES:
+            problems.append(f"{where}.arrives must be one of {', '.join(OUTCOME_ARRIVES)}")
+        if signal.get("source", "user") not in ANSWER_SOURCES:
+            problems.append(f"{where}.source must be one of {', '.join(ANSWER_SOURCES)}")
+        for key in required + optional:
+            value = signal.get(key)
+            if value is None and key in optional:
+                continue
+            if not isinstance(value, str) or not value.strip():
+                problems.append(f"{where}.{key} must be a non-empty string")
+            elif len(value) > 200:
+                problems.append(f"{where}.{key} must be at most 200 characters")
+    return problems
+
+
+def outcome_signals(profile):
+    signals = profile.get("outcome_signals")
+    if signals is None:
+        return None
+    return [
+        {
+            "kind": signal["kind"],
+            "description": signal["description"],
+            "location": signal["location"],
+            "join_key": signal.get("join_key"),
+            "arrives": signal["arrives"],
+            "typical_delay": signal.get("typical_delay"),
+            "source": signal.get("source", "user"),
+        }
+        for signal in signals
+    ]
+
+
 def validate_profile(profile):
     problems = []
     if not isinstance(profile, dict):
@@ -346,6 +403,7 @@ def validate_profile(profile):
         "as_of",
         "sources",
         "content_access",
+        "outcome_signals",
         "answers",
         *PROFILE_FIELDS,
     }
@@ -380,6 +438,7 @@ def validate_profile(profile):
             if "note" in source and not isinstance(source["note"], str):
                 problems.append(f"{where}.note must be a string")
     problems += _content_access_problems(profile.get("content_access"))
+    problems += _outcome_signal_problems(profile.get("outcome_signals"))
     for section, fields in PROFILE_FIELDS.items():
         data = profile.get(section, {})
         if data is None:
@@ -703,6 +762,17 @@ def record_types(profile, checks):
                 f"{name} is {status[name]} (evidence stays Weak)" for name in weak
             ]
     outcome = judge([("outcome_join", status["outcome_join"])], [])
+    signals = profile.get("outcome_signals")
+    if signals == []:
+        outcome["reasons"].append("no outcome signal exists yet; start capturing one")
+    elif signals:
+        if signals[0]["arrives"] == "only-on-problems":
+            outcome["reasons"].append(
+                "the outcome is recorded only when something goes wrong, so a decision "
+                "without one is not known to be right"
+            )
+        elif signals[0]["arrives"] == "some-decisions":
+            outcome["reasons"].append("only a subset of decisions gets an outcome")
     return {"decision": decision, "human_action": human_action, "outcome": outcome}
 
 
@@ -805,6 +875,7 @@ def build_readiness(profile, blind_sample_rate=0.10):
         "as_of": profile["as_of"],
         "sources": sources,
         "content_access": content_access(profile),
+        "outcome_signals": outcome_signals(profile),
         "checks": checks,
         "record_types": types,
         "verdict": roll_up(types),
@@ -853,6 +924,64 @@ def _table(header, rows):
     lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
     lines += ["| " + " | ".join(_cell(cell) for cell in row) + " |" for row in rows]
     return lines
+
+
+ARRIVES_TEXT = {
+    "every-decision": "Every decision",
+    "only-on-problems": "Only when something goes wrong",
+    "some-decisions": "A subset of decisions",
+    "unknown": "Unknown",
+}
+
+
+def _outcome_section(readiness):
+    signals = readiness["outcome_signals"]
+    status = readiness["record_types"]["outcome"]["status"]
+    out = [
+        "",
+        "## Outcome: what later showed the decision was right or wrong",
+        "",
+        "A reviewer's approval is weak evidence: people approve quickly and make their own "
+        "mistakes. The outcome is what happened afterwards, often days or weeks later and "
+        "often stored somewhere else. It is what makes this history safe to evaluate and "
+        "train from.",
+        "",
+    ]
+    if signals is None:
+        out.append("Not discussed. No outcome signal was identified with the user.")
+        return out
+    if not signals:
+        out += [
+            "No outcome signal exists yet. To start: record one event per decision with the "
+            "decision ID, what happened and when it was observed. A later second review of a "
+            "small random sample is a light way to begin.",
+        ]
+        return out
+    out += _table(
+        ["Signal", "Kind", "Where", "Joins on", "Arrives for", "Usual delay", "From"],
+        [
+            [
+                signal["description"],
+                signal["kind"],
+                signal["location"],
+                signal["join_key"] or "no shared key yet",
+                ARRIVES_TEXT[signal["arrives"]],
+                signal["typical_delay"] or "unknown",
+                signal["source"],
+            ]
+            for signal in signals
+        ],
+    )
+    out += ["", f"Measured Outcome status: `{status}`. Signals are listed most trusted first."]
+    if any(signal["arrives"] == "only-on-problems" for signal in signals):
+        out += [
+            "",
+            "A signal recorded only when something goes wrong shows low coverage by design. "
+            "A decision without one is not known to be right.",
+        ]
+    if any(not signal["join_key"] for signal in signals):
+        out += ["", "A signal with no shared key cannot be joined to decisions yet."]
+    return out
 
 
 def _content_line(access):
@@ -936,6 +1065,8 @@ def render_markdown(readiness):
         out.append("")
     basis = f" (by {volume['accept_unchanged_basis']})" if volume["accept_unchanged_basis"] else ""
     out.append(f"Accept-unchanged rate: {pct(volume['accept_unchanged_rate'])}{basis}.")
+
+    out += _outcome_section(readiness)
 
     out += ["", "## Rubber-stamp indicators by reviewer", ""]
     if volume["reviewers"]:

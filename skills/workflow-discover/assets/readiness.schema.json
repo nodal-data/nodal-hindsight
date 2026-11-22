@@ -10,6 +10,7 @@
     "as_of",
     "sources",
     "content_access",
+    "outcome_signals",
     "checks",
     "record_types",
     "verdict",
@@ -28,6 +29,24 @@
       "properties": {
         "consent": {"enum": ["aggregates-only", "samples-approved"]},
         "rows_viewed": {"type": "integer", "minimum": 0, "maximum": 20}
+      }
+    },
+    "outcome_signals": {
+      "type": ["array", "null"],
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "description", "location", "join_key", "arrives", "typical_delay", "source"],
+        "properties": {
+          "kind": {"enum": ["user-response", "downstream-status", "later-review", "business-result"]},
+          "description": {"type": "string"},
+          "location": {"type": "string"},
+          "join_key": {"type": ["string", "null"]},
+          "arrives": {"enum": ["every-decision", "only-on-problems", "some-decisions", "unknown"]},
+          "typical_delay": {"type": ["string", "null"]},
+          "source": {"enum": ["user", "code"]}
+        }
       }
     },
     "checks": {

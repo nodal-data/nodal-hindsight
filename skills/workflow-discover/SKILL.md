@@ -61,20 +61,46 @@ Then ask for the repository that runs the workflow, as a choice:
 
 - **It is on this machine**: ask for the path.
 - **It needs cloning**: ask for the URL and where to put it.
-- **No repository is available**: go to step 2 and ask where the history
-  lives.
+- **No repository is available**: carry on to step 2, then ask where the
+  history lives in step 3.
 
 With a repository, read `references/source-repo.md` and trace one run through
 the code before asking anything else. The code shows where the suggestion,
 the human action and the outcome are written, so you can tell the user where
 the history lives instead of asking.
 
-### 2. Measure the stored history
+### 2. Agree what the outcome is
+
+The suggestion and the review are usually easy to find. The outcome often is
+not: it arrives later and is stored somewhere else (a customer's later reply,
+a status column in another system, an audit). Read `references/outcomes.md`
+and do this before measuring:
+
+1. Explain to the user, briefly, why you are asking: a reviewer's approval is
+   weak evidence, because people approve quickly and make their own mistakes.
+   What makes the history safe to evaluate and train from is a later outcome
+   showing whether the decision held up.
+2. Offer the candidates the code showed, and the other kinds in the
+   reference, as a choice. Include "nothing like this exists yet".
+3. For each signal, find where it is stored, what key ties it to the
+   decision, whether it arrives for every decision or only when something
+   goes wrong, and roughly how long it takes.
+4. Record them in the profile's `outcome_signals`, most trusted first; `[]`
+   when the user confirmed there is none.
+
+No outcome is a valid result. It does not block the verdict; it tells the
+user what to start capturing.
+
+### 3. Measure the stored history
 
 The code says where records are written; only the data says how complete they
 are. Confirm the store with the user as a choice, naming what the code showed
 ("the code writes drafts to `ai_drafts` in Snowflake; measure there, or from
 an export?"):
+
+The outcome signal from step 2 may live in a different store from the
+suggestion and the review. Measure each where it lives; an outcome store this
+session cannot reach stays unmeasured and the report says so.
 
 - **A data warehouse** (Snowflake, BigQuery) this session can already query.
 - **File exports** (CSV or JSONL) on this machine.
@@ -107,7 +133,7 @@ When a probe is denied, do not stop. Leave its fields `null`, give the user the
 forwardable grant note from `references/source-warehouse.md` straight away,
 since access is the slowest dependency, and carry on with the other probes.
 
-### 3. Ask only where the evidence is ambiguous
+### 4. Ask only where the evidence is ambiguous
 
 Read `references/checks.md`. It lists, for each of the ten checks, which
 results are ambiguous and which answers resolve them. Do not ask about a check
@@ -139,7 +165,7 @@ time. Record each answer in the profile's `answers` list with the check ID, the
 question, the option chosen (the label, never pasted row content) and the
 status that `references/checks.md` assigns to that option.
 
-### 4. Write the report and summarise
+### 5. Write the report and summarise
 
 ```bash
 python3 <skill-dir>/scripts/readiness.py build \
@@ -154,7 +180,7 @@ python3 <skill-dir>/scripts/readiness.py check \
 `content_access` in the profile. Do not edit those two files by hand; change the profile and
 rebuild. If you cannot run the script in this session, say so, apply the
 rules in `references/checks.md` yourself, and mark the verdict provisional.
-While a question from step 3 is open, say which verdict each answer leads to. `--blind-sample-rate` (default `0.10`)
+While a question from step 4 is open, say which verdict each answer leads to. `--blind-sample-rate` (default `0.10`)
 sets the share of weekly volume assumed to be reviewed blind in the
 labels-needed table; ask the user only if they already have a rate in mind.
 
@@ -162,7 +188,9 @@ Then tell the user, in this order:
 
 1. The verdict (`mine-history`, `partial` or `log-forward-only`) and what it
    means for them in one sentence.
-2. The status of each record type: Decision, HumanAction, Outcome.
+2. The status of each record type: Decision, HumanAction, Outcome. For
+   Outcome, name the signal agreed in step 2, or say that none exists yet and
+   that approvals alone are weak evidence.
 3. One disposition line per check, all ten, in order:
    `<check>: present | partial | missing | unresolved | deferred: <why>`.
    Use `deferred: privileges (grant note handed over)` or `deferred: auth` for

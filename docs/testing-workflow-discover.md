@@ -96,16 +96,19 @@ What to expect:
 
 1. It asks which workflow this is, then for the repository: give the path or
    the URL from step 3.
-2. It reads the code, tells you where it thinks the records live, and asks you
-   to confirm where to measure them.
-3. It measures. For files it runs `list-columns` and `profile-files`; for a
+2. It reads the code and tells you where it thinks the records live.
+3. It explains why a reviewer's approval alone is weak evidence, then asks
+   what later shows that a run's output was right or wrong (a later reply, a
+   status in another system, an audit), where that is stored and how long it
+   takes. "Nothing like this exists yet" is a valid answer.
+4. It asks you to confirm where to measure the records, then measures. For files it runs `list-columns` and `profile-files`; for a
    warehouse it runs aggregate `SELECT` queries.
-4. It asks a few choice questions where the evidence is ambiguous, for example
+5. It asks a few choice questions where the evidence is ambiguous, for example
    which column is the suggestion, or whether the stored output is what the
    reviewer saw. If seeing a few example rows would help, it asks once whether
    the agent is approved to read row content. Answer yes only if your company
    allows that data to go to the AI provider behind Codex.
-5. It writes three files and summarises the verdict:
+6. It writes three files and summarises the verdict:
 
 ```text
 hindsight-discovery/<workflow>/profile.json
@@ -134,6 +137,9 @@ hindsight-discovery/<workflow>/readiness.md
     hindsight-discovery/<workflow>/readiness.json
   ```
 
+- **The outcome step happened.** It explained why approvals are weak evidence
+  before asking, and `readiness.md` has an Outcome section listing the signal
+  you named, or saying none exists yet.
 - **The questions were real choices**, with the evidence in the question, not
   "is that right?".
 - **Code findings are attributed.** A check settled from the repository shows

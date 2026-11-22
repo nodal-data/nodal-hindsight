@@ -33,7 +33,7 @@ characters, or values that rarely repeat.
 ## 2. Write the column map
 
 Propose a map from the column names and shapes. Where two columns could fill
-the same role, ask the user to choose between them (see `SKILL.md`, step 3).
+the same role, ask the user to choose between them (see `SKILL.md`, step 4).
 Leave out any role with no column; its check is then reported as not measured.
 
 ```json
@@ -124,7 +124,7 @@ pass the status-value test, and reviewer ordinals.
 
 Read the profile, not the files, to decide which questions to ask. Add the
 answers to the profile's `answers` list, then run `build` (see `SKILL.md`,
-step 4).
+step 5).
 
 ## Limits
 

@@ -1,7 +1,7 @@
 # The ten checks
 
 Each check is reported as `present`, `partial` or `missing`, with its evidence
-and who settled it: `probe`, `user` (an answer from step 3), `code` (a finding
+and who settled it: `probe`, `user` (an answer from step 4), `code` (a finding
 in the workflow's repository, see `references/source-repo.md`) or `unresolved`.
 `scripts/readiness.py build` applies the rules below from the profile; this
 file tells you what each check needs and which questions resolve ambiguity.
@@ -143,6 +143,9 @@ Can the input the AI saw be recovered as it was at decision time? Replay with
   `partial`.
 - Recent decisions have not had time to produce an outcome. Measure coverage
   on decisions older than the p90 lag, and say so in the summary.
+- The outcome signal is agreed with the user first, in step 2 of `SKILL.md`
+  (`references/outcomes.md`). Measure the signal listed first in
+  `outcome_signals`.
 - Ask when more than one event could be the outcome (a reply, a claim result,
   a reopened ticket): list the candidates with their join coverage and let the
   user choose which one says the decision was right or wrong.

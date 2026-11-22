@@ -31,6 +31,7 @@ Rates are fractions from 0 to 1.
 | `as_of` | `YYYY-MM-DD`, the day the probes ran |
 | `sources` | One entry per source: `type` (`repository`, `warehouse`, `files`, `unsupported`), `location` (repository, account and database, or a directory), `objects` (code files, tables or export files), optional `note` |
 | `content_access` | `consent` (`aggregates-only`, the default, or `samples-approved`) and `rows_viewed` (sample rows viewed in the session, at most 20; must be `0` without consent). See `references/content-samples.md` |
+| `outcome_signals` | What later shows a decision was right or wrong, most trusted first; `null` if not discussed, `[]` if none exists. Each entry: `kind` (`user-response`, `downstream-status`, `later-review`, `business-result`), `description`, `location`, optional `join_key`, `arrives` (`every-decision`, `only-on-problems`, `some-decisions`, `unknown`), optional `typical_delay`, optional `source` (`user` or `code`). See `references/outcomes.md` |
 | `answers` | One entry per settled question: `check` (a check ID), `question`, `answer` (the option chosen, or the code finding with its file), `status` (`present`, `partial`, `missing`), optional `source` (`user`, the default, or `code`). At most one per check; it overrides the probe status |
 
 ### `decisions`
@@ -91,7 +92,7 @@ verdict follows from the record types.
 | Field | Meaning |
 |---|---|
 | `schema_version` | `"0.1"` |
-| `workflow`, `as_of`, `sources`, `content_access` | Copied from the profile |
+| `workflow`, `as_of`, `sources`, `content_access`, `outcome_signals` | Copied from the profile |
 | `checks` | The ten checks in order: `id`, `status` (`present`, `partial`, `missing`), `evidence`, `answered_by` (`probe`, `user`, `code`, `unresolved`) |
 | `record_types` | `decision`, `human_action`, `outcome`, each with `status` (`minable`, `partial`, `not-minable`) and `reasons` |
 | `verdict` | `mine-history`, `partial` or `log-forward-only` |
@@ -108,11 +109,13 @@ Sections, in order:
    that are unresolved.
 4. **AI suggestion versus human action**: decisions by action kind. Labelled
    "not evidence of correctness".
-5. **Rubber-stamp indicators by reviewer**: actions, accept-unchanged rate and
+5. **Outcome**: why approvals are weak evidence, and the outcome signals
+   agreed with the user (or that none exists yet).
+6. **Rubber-stamp indicators by reviewer**: actions, accept-unchanged rate and
    median seconds to action per reviewer ordinal, plus flags.
-6. **Volume and request types**: weekly volume and the category field.
-7. **Labels needed.**
-8. **What discovery cannot do.**
+7. **Volume and request types**: weekly volume and the category field.
+8. **Labels needed.**
+9. **What discovery cannot do.**
 
 ## The labels-needed table
 

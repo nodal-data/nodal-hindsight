@@ -619,3 +619,69 @@ def test_consent_reference_probes_are_bounded_selects():
         assert statement.count("LEFT(") == statement.count("AS sample_")
     skill = (SKILL / "SKILL.md").read_text()
     assert "references/content-samples.md" in skill
+
+
+def test_outcome_signals_are_reported_with_the_weak_evidence_explanation():
+    profile = healthy_profile()
+    result = readiness.build_readiness(profile)
+    assert result["outcome_signals"] is None
+    assert "Not discussed" in readiness.render_markdown(result)
+
+    profile["outcome_signals"] = []
+    result = readiness.build_readiness(profile)
+    assert "no outcome signal exists yet" in " ".join(result["record_types"]["outcome"]["reasons"])
+    assert "No outcome signal exists yet" in readiness.render_markdown(result)
+
+    profile["outcome_signals"] = [
+        {
+            "kind": "downstream-status",
+            "description": "Appeal result on the claim",
+            "location": "claims.appeal_status in Snowflake",
+            "join_key": "claim_id",
+            "arrives": "only-on-problems",
+            "typical_delay": "30 to 60 days",
+        },
+        {
+            "kind": "later-review",
+            "description": "Monthly quality audit",
+            "location": "audit spreadsheet",
+            "arrives": "some-decisions",
+            "source": "code",
+        },
+    ]
+    before = readiness.build_readiness(healthy_profile())
+    result = readiness.build_readiness(profile)
+    jsonschema.validate(result, SCHEMA)
+    assert not readiness.check_readiness(result)
+    assert result["verdict"] == before["verdict"]  # describing the outcome never moves the verdict
+    assert result["record_types"]["outcome"]["status"] == before["record_types"]["outcome"]["status"]
+    assert "not known to be right" in " ".join(result["record_types"]["outcome"]["reasons"])
+    assert [signal["source"] for signal in result["outcome_signals"]] == ["user", "code"]
+    text = readiness.render_markdown(result)
+    assert "approval is weak evidence" in text
+    assert "Appeal result on the claim" in text
+    assert "no shared key yet" in text
+    assert "Only when something goes wrong" in text
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        ({"kind": "vibes"}, "kind must be one of"),
+        ({"arrives": "always"}, "arrives must be one of"),
+        ({"location": ""}, "location must be a non-empty string"),
+        ({"description": "x" * 201}, "at most 200 characters"),
+        ({"sample_value": "anything"}, "unknown key: sample_value"),
+    ],
+)
+def test_outcome_signals_are_validated(change, message):
+    profile = healthy_profile()
+    signal = {
+        "kind": "user-response",
+        "description": "Customer reopens the ticket",
+        "location": "tickets.reopened_at",
+        "arrives": "only-on-problems",
+    }
+    profile["outcome_signals"] = [{**signal, **change}]
+    with pytest.raises(readiness.UsageError, match=message):
+        readiness.build_readiness(profile)

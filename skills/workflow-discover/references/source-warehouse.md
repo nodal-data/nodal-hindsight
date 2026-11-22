@@ -46,7 +46,7 @@ LIMIT 2000
 From the names and types, propose which table holds decisions, which holds
 human actions and which holds outcomes, and which column fills each role
 below. Where two tables or columns could fill a role, ask the user to choose
-(see `SKILL.md`, step 3). One wide table can serve as both decisions and
+(see `SKILL.md`, step 4). One wide table can serve as both decisions and
 actions; use it for both placeholders.
 
 ## 3. Parameters
