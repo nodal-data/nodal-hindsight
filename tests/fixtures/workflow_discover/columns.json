@@ -1,0 +1,51 @@
+{
+  "decisions": {
+    "id": "id",
+    "decided_at": "created_at",
+    "suggestion": "ai_draft",
+    "suggestion_updated_at": "draft_updated_at",
+    "exposure": "shown",
+    "exposure_values": {
+      "shown": [
+        "Y"
+      ],
+      "hidden": [
+        "N"
+      ]
+    },
+    "model": "model",
+    "prompt_version": "prompt_v",
+    "code_version": "code_v",
+    "context": "input_json",
+    "context_snapshot_at": "snapshot_at",
+    "request_content": "message_body",
+    "category": "queue"
+  },
+  "actions": {
+    "decision_id": "decision_id",
+    "event_at": "at",
+    "observed_at": "seen_at",
+    "actor": "reviewer",
+    "kind": "action",
+    "kind_values": {
+      "accepted": [
+        "approve"
+      ],
+      "edited": [
+        "edit"
+      ],
+      "overridden": [
+        "override"
+      ],
+      "escalated": [
+        "escalate"
+      ]
+    },
+    "output": "final_text"
+  },
+  "outcomes": {
+    "decision_id": "decision_id",
+    "event_at": "happened_at",
+    "observed_at": "recorded_at"
+  }
+}

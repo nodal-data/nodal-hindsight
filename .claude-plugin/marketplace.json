@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nodal-hindsight",
+  "description": "Nodal Hindsight onboarding skills",
+  "owner": {
+    "name": "Nodal Data"
+  },
+  "plugins": [
+    {
+      "name": "nodal-hindsight",
+      "description": "Onboard a human-in-the-loop AI workflow to Nodal Hindsight: check whether its stored history can be mined, using aggregates only.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Nodal Data"
+      },
+      "source": "./",
+      "category": "data"
+    }
+  ]
+}

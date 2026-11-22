@@ -21,3 +21,7 @@ dist/
 .agents/
 *.pem
 *.key
+
+# Plugin eval results and local discovery output.
+quality/plugin-evals/results/
+hindsight-discovery/
