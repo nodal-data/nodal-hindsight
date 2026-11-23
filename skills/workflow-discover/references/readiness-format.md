@@ -4,7 +4,7 @@ Three files are written to `hindsight-discovery/<workflow>/`:
 
 | File | Written by | Purpose |
 |---|---|---|
-| `profile.json` | `profile-files`, or you from warehouse probes | Aggregate measurements and the user's answers |
+| `profile.json` | `profile-files` (exports or SQLite), or you from warehouse probes | Aggregate measurements and the user's answers |
 | `readiness.json` | `build` | Checks, record-type statuses, verdict, volume, label estimate |
 | `readiness.md` | `build` | The same, for a person to read |
 
@@ -18,7 +18,7 @@ Start one with `python3 <skill-dir>/scripts/readiness.py template --workflow
 rather than ignored.
 
 `null` means not measured. `0` means measured and absent. The difference
-matters: a `null` check is reported as `unresolved`, a `0` as `missing`.
+matters: a `null` check is reported as `not-measured`, a `0` as `missing`.
 
 Rates are fractions from 0 to 1.
 
@@ -29,9 +29,11 @@ Rates are fractions from 0 to 1.
 | `profile_version` | `"0.1"` |
 | `workflow` | Lowercase slug, for example `prior-auth-review` |
 | `as_of` | `YYYY-MM-DD`, the day the probes ran |
-| `sources` | One entry per source: `type` (`repository`, `warehouse`, `files`, `unsupported`), `location` (repository, account and database, or a directory), `objects` (code files, tables or export files), optional `note` |
+| `sources` | One entry per source: `type` (`repository`, `warehouse`, `files`, `sqlite`, `unsupported`), `location` (repository, account and database, or a directory), `objects` (code files, tables or export files), optional `note` of at most 300 characters |
 | `content_access` | `consent` (`aggregates-only`, the default, or `samples-approved`) and `rows_viewed` (sample rows viewed in the session, at most 20; must be `0` without consent). See `references/content-samples.md` |
 | `outcome_signals` | What later shows a decision was right or wrong, most trusted first; `null` if not discussed, `[]` if none exists. Each entry: `kind` (`user-response`, `downstream-status`, `later-review`, `business-result`), `description`, `location`, optional `join_key`, `arrives` (`every-decision`, `only-on-problems`, `some-decisions`, `unknown`), optional `typical_delay`, optional `source` (`user` or `code`). See `references/outcomes.md` |
+| `code_findings` | What the workflow's code shows, at most one entry per check: `check`, `finding` (at most 400 characters), optional `files`, optional `since` (`YYYY-MM-DD`), `suggests` (`present`, `partial`, `missing`). Shown beside the check; does not change its status |
+| `logging_changes` | Specific changes that would close a gap, at most 20: `check`, `change`, optional `file` |
 | `answers` | One entry per settled question: `check` (a check ID), `question`, `answer` (the option chosen, or the code finding with its file), `status` (`present`, `partial`, `missing`), optional `source` (`user`, the default, or `code`). At most one per check; it overrides the probe status |
 
 ### `decisions`
@@ -93,9 +95,10 @@ verdict follows from the record types.
 |---|---|
 | `schema_version` | `"0.1"` |
 | `workflow`, `as_of`, `sources`, `content_access`, `outcome_signals` | Copied from the profile |
-| `checks` | The ten checks in order: `id`, `status` (`present`, `partial`, `missing`), `evidence`, `answered_by` (`probe`, `user`, `code`, `unresolved`) |
-| `record_types` | `decision`, `human_action`, `outcome`, each with `status` (`minable`, `partial`, `not-minable`) and `reasons` |
-| `verdict` | `mine-history`, `partial` or `log-forward-only` |
+| `checks` | The ten checks in order: `id`, `status` (`present`, `partial`, `missing`, `not-measured`), `evidence`, `answered_by` (`probe`, `user`, `code`, `unresolved`), `code` (the code finding for the check, or `null`) |
+| `record_types` | `decision`, `human_action`, `outcome`, each with `status` (`minable`, `partial`, `not-minable`, `not-measured`) and `reasons` |
+| `verdict` | `mine-history`, `partial`, `log-forward-only` or `not-measured` |
+| `next_steps` | `measure` (what to profile or export), `start_logging` (gaps, most valuable first, each with `check`, `status`, `basis`, `advice` and the matching `changes`), `then` (what comes after) |
 | `volume` | Decision count, date range, weekly median, accept-unchanged rate and basis, `kind_counts`, `reviewers`, `classes` (the category field), `flags` |
 | `label_estimate` | `basis`, `blind_sample_rate`, `weekly_volume`, `rows` (four error-rate bounds with labels needed and weeks), `per_class` |
 
@@ -104,18 +107,20 @@ verdict follows from the record types.
 Sections, in order:
 
 1. **Verdict**, with a table of the three record types and why.
-2. **Sources.**
-3. **Checks**: all ten with status, who settled it and the evidence; then any
-   that are unresolved.
-4. **AI suggestion versus human action**: decisions by action kind. Labelled
+2. **What to do next**: what to measure, what to start logging (most valuable
+   first), and what comes after.
+3. **Sources.**
+4. **Checks**: all ten with status, who settled it, the evidence and what the
+   code shows; then any that need an answer.
+5. **AI suggestion versus human action**: decisions by action kind. Labelled
    "not evidence of correctness".
-5. **Outcome**: why approvals are weak evidence, and the outcome signals
+6. **Outcome**: why approvals are weak evidence, and the outcome signals
    agreed with the user (or that none exists yet).
-6. **Rubber-stamp indicators by reviewer**: actions, accept-unchanged rate and
+7. **Rubber-stamp indicators by reviewer**: actions, accept-unchanged rate and
    median seconds to action per reviewer ordinal, plus flags.
-7. **Volume and request types**: weekly volume and the category field.
-8. **Labels needed.**
-9. **What discovery cannot do.**
+8. **Volume and request types**: weekly volume and the category field.
+9. **Labels needed.**
+10. **What discovery cannot do.**
 
 ## The labels-needed table
 

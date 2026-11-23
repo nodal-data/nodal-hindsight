@@ -67,7 +67,9 @@ Then ask for the repository that runs the workflow, as a choice:
 With a repository, read `references/source-repo.md` and trace one run through
 the code before asking anything else. The code shows where the suggestion,
 the human action and the outcome are written, so you can tell the user where
-the history lives instead of asking.
+the history lives instead of asking. Record what the code shows for each
+check in the profile's `code_findings`, and the specific changes that would
+close a gap in `logging_changes`. Do not put them in a source note.
 
 ### 2. Agree what the outcome is
 
@@ -103,31 +105,34 @@ suggestion and the review. Measure each where it lives; an outcome store this
 session cannot reach stays unmeasured and the report says so.
 
 - **A data warehouse** (Snowflake, BigQuery) this session can already query.
-- **File exports** (CSV or JSONL) on this machine.
-- **Somewhere else** (a trace platform, a CRM, an agent platform, only in the
-  application database).
+- **Files on this machine**: CSV or JSONL exports, or a SQLite database
+  (common for a local agent job and for agent frameworks' own state).
+- **Somewhere else** (a trace platform, a CRM, a hosted agent platform, a
+  database this session cannot reach).
 
 "Somewhere else" is not supported yet. Record it as a source of type
 `unsupported` with a note saying what would be needed (for example "an export
 of traces to JSONL with the suggestion, the reviewer action and a timestamp"),
 and ask whether a warehouse copy or a file export exists. If neither does,
-still write the report from what the code showed; it says that no stored
-history was measured.
+still write the report from what the code showed. Its verdict is then
+`not-measured`, which is not a judgement on the history.
 
 Read the one reference that matches, when you reach this step:
 
 - Warehouse: `references/source-warehouse.md`. Probe the connection, find the
   tables and columns from metadata, run the aggregate probes, and fill a
   profile started with `python3 <skill-dir>/scripts/readiness.py template`.
-- Files: `references/source-files.md`. Describe the columns with
-  `list-columns`, write a column map, and run `profile-files`. The script
+- Files or SQLite: `references/source-files.md`. For SQLite, list the tables
+  with `list-tables` and name each one as `database#table`. Describe the
+  columns with `list-columns`, write a column map, and run `profile-files`. The script
   computes the aggregates locally, so row content never enters this
   conversation.
 
 Either way the result is one profile file,
 `hindsight-discovery/<workflow>/profile.json`, in the current directory. It
 holds aggregates only. `references/readiness-format.md` defines every field;
-`null` means not measured and `0` means measured and absent.
+`null` means not measured and `0` means measured and absent. A check with
+nothing measured is reported as `not-measured`, never as `missing`.
 
 When a probe is denied, do not stop. Leave its fields `null`, give the user the
 forwardable grant note from `references/source-warehouse.md` straight away,
@@ -186,18 +191,22 @@ labels-needed table; ask the user only if they already have a rate in mind.
 
 Then tell the user, in this order:
 
-1. The verdict (`mine-history`, `partial` or `log-forward-only`) and what it
-   means for them in one sentence.
+1. The verdict (`mine-history`, `partial`, `log-forward-only` or
+   `not-measured`) and what it means for them in one sentence. For
+   `not-measured`, say plainly that the history was not judged, and what has
+   to be measured.
 2. The status of each record type: Decision, HumanAction, Outcome. For
    Outcome, name the signal agreed in step 2, or say that none exists yet and
    that approvals alone are weak evidence.
 3. One disposition line per check, all ten, in order:
-   `<check>: present | partial | missing | unresolved | deferred: <why>`.
+   `<check>: present | partial | missing | not measured | needs an answer | deferred: <why>`.
+   For a check that was not measured, add what the code suggests.
    Use `deferred: privileges (grant note handed over)` or `deferred: auth` for
    a probe that could not run. A check you cannot write a line for is a check
    you skipped; go back and run it.
-4. What to start logging now, most valuable first, taken from the missing and
-   partial checks.
+4. What to do next, from the "What to do next" section of `readiness.md`:
+   what to measure, what to start logging (most valuable first, with the
+   specific changes you recorded), and what comes after.
 5. Where the files are, and that the labels-needed table in `readiness.md` is
    a reference table, not a sample plan.
 

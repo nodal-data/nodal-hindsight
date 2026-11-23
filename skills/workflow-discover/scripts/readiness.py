@@ -5,8 +5,9 @@ Standard library only, so it runs from an installed skill with no package around
 
 Subcommands:
   template        print an empty profile to fill from warehouse probe results
-  list-columns    describe the columns of CSV/JSONL exports without printing values
-  profile-files   compute the aggregate profile from CSV/JSONL exports
+  list-tables     list the tables and column names of a SQLite database
+  list-columns    describe the columns of exports or SQLite tables without printing values
+  profile-files   compute the aggregate profile from CSV/JSONL exports or SQLite tables
   build           apply the verdict rules and write readiness.json + readiness.md
   check           validate a readiness.json
   sample          show a few truncated values of named columns, after the user consents
@@ -21,11 +22,13 @@ import hashlib
 import json
 import math
 import re
+import sqlite3
 import statistics
 import sys
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 SCHEMA_VERSION = "0.1"
 PROFILE_VERSION = "0.1"
@@ -64,8 +67,13 @@ KINDS = [
     "unknown",
 ]
 STATUSES = ["present", "partial", "missing"]
-VERDICTS = ["mine-history", "partial", "log-forward-only"]
-SOURCE_TYPES = ["repository", "warehouse", "files", "unsupported"]
+CHECK_STATUSES = [*STATUSES, "not-measured"]
+VERDICTS = ["mine-history", "partial", "log-forward-only", "not-measured"]
+SOURCE_TYPES = ["repository", "warehouse", "files", "sqlite", "unsupported"]
+SOURCE_NOTE_MAX = 300
+FINDING_MAX = 400
+LOGGING_CHANGES_MAX = 20
+SQLITE_SUFFIXES = (".sqlite", ".sqlite3", ".db")
 ANSWER_SOURCES = ["user", "code"]
 OUTCOME_KINDS = ["user-response", "downstream-status", "later-review", "business-result"]
 OUTCOME_ARRIVES = ["every-decision", "only-on-problems", "some-decisions", "unknown"]
@@ -172,6 +180,53 @@ COLUMN_KEYS = {
 }
 NON_COLUMN_KEYS = {"exposure_values", "kind_values", "where"}
 
+# Most valuable first: what to start logging when a check is not present.
+LOGGING_ADVICE = [
+    (
+        "suggestion_separate",
+        "Store the AI output in its own field at the moment it is produced, separate from "
+        "anything a person writes later.",
+    ),
+    (
+        "suggestion_not_overwritten",
+        "Never update the stored AI output. Write a reviewer's edit or a regeneration as a "
+        "new record.",
+    ),
+    (
+        "exposure_known",
+        "Record on each decision whether the reviewer was shown the AI output before acting "
+        "(shown, hidden or unknown).",
+    ),
+    (
+        "outcome_join",
+        "Record each outcome as its own event with the decision ID, what happened and when "
+        "it was observed.",
+    ),
+    (
+        "timestamps",
+        "Record when the decision was made, when each human action and outcome happened, and "
+        "when the system observed it.",
+    ),
+    ("reviewer_id", "Store a stable ID for the person on every human action."),
+    (
+        "volume_accept_rate",
+        "Store what the reviewer did (accepted, edited, rejected) as an explicit value on "
+        "each human action.",
+    ),
+    (
+        "policy_identity",
+        "Store the model name, prompt version and code version with every decision.",
+    ),
+    (
+        "frozen_context",
+        "Save a copy of the inputs the AI saw with each decision, and the time it was captured.",
+    ),
+    (
+        "request_type_signal",
+        "Store the request content and a category, queue or tag on each decision.",
+    ),
+]
+
 CANNOT_DO = [
     "Recover a suggestion that was overwritten, exposure that was never logged, or reviewer "
     "IDs that do not exist. Discovery reports these; it does not fix them.",
@@ -239,6 +294,8 @@ def empty_profile(workflow="workflow-name", as_of=None):
         "sources": [],
         "content_access": {"consent": "aggregates-only", "rows_viewed": 0},
         "outcome_signals": None,
+        "code_findings": [],
+        "logging_changes": [],
     }
     for section, fields in PROFILE_FIELDS.items():
         profile[section] = {name: None for name in fields}
@@ -375,6 +432,75 @@ def _outcome_signal_problems(signals):
     return problems
 
 
+def _text_problem(where, value, limit):
+    if not isinstance(value, str) or not value.strip():
+        return f"{where} must be a non-empty string"
+    if len(value) > limit:
+        return f"{where} must be at most {limit} characters"
+    return None
+
+
+def _code_finding_problems(findings):
+    if findings is None:
+        return []
+    if not isinstance(findings, list):
+        return ["code_findings must be a list"]
+    problems, seen = [], set()
+    for index, finding in enumerate(findings):
+        where = f"code_findings[{index}]"
+        if not isinstance(finding, dict):
+            problems.append(f"{where} must be an object")
+            continue
+        for key in sorted(set(finding) - {"check", "finding", "files", "since", "suggests"}):
+            problems.append(f"{where}: unknown key: {key}")
+        if finding.get("check") not in CHECK_IDS:
+            problems.append(f"{where}.check must be one of {', '.join(CHECK_IDS)}")
+        elif finding["check"] in seen:
+            problems.append(f"{where}: more than one finding for {finding['check']}")
+        seen.add(finding.get("check"))
+        problem = _text_problem(f"{where}.finding", finding.get("finding"), FINDING_MAX)
+        if problem:
+            problems.append(problem)
+        if finding.get("suggests") not in STATUSES:
+            problems.append(f"{where}.suggests must be one of {', '.join(STATUSES)}")
+        files = finding.get("files", [])
+        if not isinstance(files, list) or any(not isinstance(f, str) or not f for f in files):
+            problems.append(f"{where}.files must be a list of file names")
+        since = finding.get("since")
+        if since is not None and (
+            not isinstance(since, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", since)
+        ):
+            problems.append(f"{where}.since must be a YYYY-MM-DD date")
+    return problems
+
+
+def _logging_change_problems(changes):
+    if changes is None:
+        return []
+    if not isinstance(changes, list):
+        return ["logging_changes must be a list"]
+    problems = []
+    if len(changes) > LOGGING_CHANGES_MAX:
+        problems.append(f"logging_changes holds at most {LOGGING_CHANGES_MAX} entries")
+    for index, change in enumerate(changes):
+        where = f"logging_changes[{index}]"
+        if not isinstance(change, dict):
+            problems.append(f"{where} must be an object")
+            continue
+        for key in sorted(set(change) - {"check", "change", "file"}):
+            problems.append(f"{where}: unknown key: {key}")
+        if change.get("check") not in CHECK_IDS:
+            problems.append(f"{where}.check must be one of {', '.join(CHECK_IDS)}")
+        problem = _text_problem(f"{where}.change", change.get("change"), FINDING_MAX)
+        if problem:
+            problems.append(problem)
+        if change.get("file") is not None and (
+            not isinstance(change["file"], str) or not change["file"]
+        ):
+            problems.append(f"{where}.file must be a file name")
+    return problems
+
+
 def outcome_signals(profile):
     signals = profile.get("outcome_signals")
     if signals is None:
@@ -404,6 +530,8 @@ def validate_profile(profile):
         "sources",
         "content_access",
         "outcome_signals",
+        "code_findings",
+        "logging_changes",
         "answers",
         *PROFILE_FIELDS,
     }
@@ -437,8 +565,16 @@ def validate_profile(profile):
                 problems.append(f"{where}.objects must be a list of strings")
             if "note" in source and not isinstance(source["note"], str):
                 problems.append(f"{where}.note must be a string")
+            elif len(source.get("note", "")) > SOURCE_NOTE_MAX:
+                problems.append(
+                    f"{where}.note must be at most {SOURCE_NOTE_MAX} characters; put what the "
+                    "code shows for a check in code_findings and changes to make in "
+                    "logging_changes"
+                )
     problems += _content_access_problems(profile.get("content_access"))
     problems += _outcome_signal_problems(profile.get("outcome_signals"))
+    problems += _code_finding_problems(profile.get("code_findings"))
+    problems += _logging_change_problems(profile.get("logging_changes"))
     for section, fields in PROFILE_FIELDS.items():
         data = profile.get(section, {})
         if data is None:
@@ -496,11 +632,15 @@ def evaluate_checks(profile):
     results = {}
 
     def put(check_id, status, evidence, resolved=True):
+        # Nothing measured is not the same as measured and absent.
+        if not resolved and status == "missing":
+            status = "not-measured"
         results[check_id] = {
             "id": check_id,
             "status": status,
             "evidence": evidence,
             "answered_by": "probe" if resolved else "unresolved",
+            "code": None,
         }
 
     # 1. Suggestion stored separately.
@@ -717,6 +857,13 @@ def evaluate_checks(profile):
             f"{result['evidence']} Asked: {answer['question'].strip()} "
             f"{label}: {answer['answer'].strip()}"
         )
+    for finding in profile.get("code_findings") or []:
+        results[finding["check"]]["code"] = {
+            "finding": finding["finding"].strip(),
+            "files": list(finding.get("files", [])),
+            "since": finding.get("since"),
+            "suggests": finding["suggests"],
+        }
     return [results[check_id] for check_id in CHECK_IDS]
 
 
@@ -729,38 +876,51 @@ def record_types(profile, checks):
         blocking = list(blocking) + list(extra)
         missing = [name for name, value in blocking if value == "missing"]
         partial = [name for name, value in blocking if value == "partial"]
+        unmeasured = [name for name, value in blocking if value == "not-measured"]
         gap_names = [name for name in gaps if status[name] != "present"]
         if missing:
             verdict = "not-minable"
+        elif unmeasured:
+            verdict = "not-measured"
         elif partial:
             verdict = "partial"
         else:
             verdict = "minable"
         reasons = [f"{name} is missing" for name in missing]
         reasons += [f"{name} is partial" for name in partial]
-        reasons += [f"{name} is {status[name]} (does not block mining)" for name in gap_names]
+        reasons += [f"{name} was not measured" for name in unmeasured]
+        reasons += [
+            f"{name} was not measured"
+            if status[name] == "not-measured"
+            else f"{name} is {status[name]} (does not block mining)"
+            for name in gap_names
+        ]
         return {"status": verdict, "reasons": reasons}
 
-    decided = coverage_status(d["decided_at_coverage"]) or "missing"
+    decided = coverage_status(d["decided_at_coverage"]) or "not-measured"
     decision = judge(
         [(name, status[name]) for name in ("suggestion_separate", "suggestion_not_overwritten")],
         ["policy_identity", "frozen_context", "request_type_signal"],
         [("decided_at", decided)],
     )
     # Any joined human action is minable; decisions still awaiting review do not count against it.
-    has_actions = "present" if a["decisions_with_action_rate"] else "missing"
-    event_at = coverage_status(a["event_at_coverage"]) or "missing"
+    joined = a["decisions_with_action_rate"]
+    has_actions = "not-measured" if joined is None else "present" if joined else "missing"
+    event_at = coverage_status(a["event_at_coverage"]) or "not-measured"
     human_action = judge(
         [("human actions joined to decisions", has_actions), ("action event_at", event_at)],
         [],
     )
-    if human_action["status"] != "not-minable":
-        weak = [name for name in ("exposure_known", "reviewer_id") if status[name] != "present"]
-        if weak:
-            human_action["status"] = "partial"
-            human_action["reasons"] += [
-                f"{name} is {status[name]} (evidence stays Weak)" for name in weak
-            ]
+    weak = [name for name in ("exposure_known", "reviewer_id") if status[name] != "present"]
+    if weak and human_action["status"] in ("minable", "partial"):
+        human_action["status"] = "partial"
+    if weak and human_action["status"] != "not-minable":
+        human_action["reasons"] += [
+            f"{name} was not measured"
+            if status[name] == "not-measured"
+            else f"{name} is {status[name]} (evidence stays Weak)"
+            for name in weak
+        ]
     outcome = judge([("outcome_join", status["outcome_join"])], [])
     signals = profile.get("outcome_signals")
     if signals == []:
@@ -779,6 +939,8 @@ def record_types(profile, checks):
 def roll_up(types):
     if types["decision"]["status"] == "not-minable":
         return "log-forward-only"
+    if "not-measured" in (types["decision"]["status"], types["human_action"]["status"]):
+        return "not-measured"
     if types["decision"]["status"] == "minable" and types["human_action"]["status"] == "minable":
         return "mine-history"
     return "partial"
@@ -818,6 +980,79 @@ def label_estimate(profile, blind_sample_rate):
         "weekly_volume": weekly,
         "rows": rows,
         "per_class": per_class,
+    }
+
+
+THEN_TEXT = {
+    "not-measured": (
+        "Measure the stores listed above and rerun discovery. Until then this report says "
+        "what the code does today, not whether the history can be mined."
+    ),
+    "log-forward-only": (
+        "Make the logging changes, let new history build up for a few weeks, then rerun "
+        "discovery."
+    ),
+    "partial": (
+        "The parts marked minable can be mapped into Hindsight records now. Make the logging "
+        "changes so new history closes the gaps."
+    ),
+    "mine-history": (
+        "The history can be mapped into Hindsight Decision and HumanAction records now."
+    ),
+}
+KEEP_PROFILE = (
+    " Keep `profile.json`: its sources and column names are the starting point for mapping "
+    "this history into Hindsight records, a step that is not automated yet."
+)
+
+
+def next_steps(profile, checks, verdict):
+    """What to measure, what to start logging (most valuable first), and what comes after."""
+    measure = []
+    for source in profile["sources"]:
+        if source["type"] == "unsupported":
+            note = source.get("note") or "Export it to CSV or JSONL, or copy it to a warehouse."
+            measure.append(f"`{source['location']}`: {note}")
+    unmeasured = [check["id"] for check in checks if check["status"] == "not-measured"]
+    if unmeasured:
+        measure.append(
+            "Not measured yet: "
+            + ", ".join(unmeasured)
+            + ". Profile the stores that hold them (CSV, JSONL or SQLite files, or a warehouse)."
+        )
+    by_id = {check["id"]: check for check in checks}
+    changes = {}
+    for change in profile.get("logging_changes") or []:
+        changes.setdefault(change["check"], []).append(
+            {"change": change["change"].strip(), "file": change.get("file")}
+        )
+    start_logging = []
+    for check_id, advice in LOGGING_ADVICE:
+        check = by_id[check_id]
+        code = check["code"]
+        if check["status"] in ("missing", "partial"):
+            status, basis = check["status"], check["answered_by"]
+            if basis in ("probe", "unresolved"):
+                basis = "measured"
+        elif check["status"] == "not-measured" and code and code["suggests"] != "present":
+            status, basis = code["suggests"], "code, not yet measured"
+        elif check_id in changes:
+            status, basis = check["status"], "suggested from the code"
+        else:
+            continue
+        start_logging.append(
+            {
+                "check": check_id,
+                "status": status,
+                "basis": basis,
+                "advice": advice,
+                "changes": changes.get(check_id, []),
+            }
+        )
+    return {
+        "measure": measure,
+        "start_logging": start_logging,
+        "then": THEN_TEXT[verdict] + KEEP_PROFILE,
     }
 
 
@@ -879,6 +1114,7 @@ def build_readiness(profile, blind_sample_rate=0.10):
         "checks": checks,
         "record_types": types,
         "verdict": roll_up(types),
+        "next_steps": next_steps(profile, checks, roll_up(types)),
         "volume": {
             "decisions": d["rows"],
             "weeks_observed": d["weeks_observed"],
@@ -912,6 +1148,11 @@ VERDICT_TEXT = {
     "log-forward-only": (
         "The stored history cannot be mined: the AI suggestion as shown is not recoverable. "
         "Log forward from today."
+    ),
+    "not-measured": (
+        "The stored history has not been measured, so this is not yet a verdict on whether "
+        "it can be mined. The checks below show what the code does today; the next steps say "
+        "what to measure."
     ),
 }
 
@@ -984,6 +1225,42 @@ def _outcome_section(readiness):
     return out
 
 
+def _code_cell(code):
+    if not code:
+        return ""
+    text = f"Suggests {code['suggests']}"
+    if code["since"]:
+        text += f" since {code['since']}"
+    text += f": {code['finding']}"
+    if code["files"]:
+        text += " (" + ", ".join(f"`{name}`" for name in code["files"]) + ")"
+    return text
+
+
+def _next_steps_section(steps):
+    out = ["", "## What to do next", ""]
+    number = 1
+    if steps["measure"]:
+        out += [f"### {number}. Measure the stored history", ""]
+        out += [f"- {item}" for item in steps["measure"]]
+        out.append("")
+        number += 1
+    out += [f"### {number}. Start logging, most valuable first", ""]
+    if steps["start_logging"]:
+        for index, item in enumerate(steps["start_logging"], 1):
+            out.append(
+                f"{index}. **{CHECK_TITLES[item['check']]}** ({item['status']}; "
+                f"{item['basis']}). {item['advice']}"
+            )
+            for change in item["changes"]:
+                where = f" (`{change['file']}`)" if change["file"] else ""
+                out.append(f"   - {change['change']}{where}")
+    else:
+        out.append("Nothing to add: no check that was measured or read from the code has a gap.")
+    out += ["", f"### {number + 1}. After that", "", steps["then"]]
+    return out
+
+
 def _content_line(access):
     if access["consent"] != "samples-approved":
         return "Aggregates only; no row content was read."
@@ -1012,10 +1289,16 @@ def render_markdown(readiness):
         VERDICT_TEXT[readiness["verdict"]],
         "",
     ]
-    if all(source["type"] in ("unsupported", "repository") for source in readiness["sources"]):
+    suggested = Counter(
+        check["code"]["suggests"]
+        for check in readiness["checks"]
+        if check["status"] == "not-measured" and check["code"]
+    )
+    if suggested:
         out += [
-            "No stored history was measured. This verdict reflects that, not that the history "
-            "is unusable.",
+            "From the code alone, for the checks not yet measured: "
+            + ", ".join(f"{suggested[name]} look {name}" for name in STATUSES if suggested[name])
+            + ". Code shows what is written today, not how complete the history is.",
             "",
         ]
     names = {"decision": "Decision", "human_action": "HumanAction", "outcome": "Outcome"}
@@ -1026,6 +1309,7 @@ def render_markdown(readiness):
             for key, value in readiness["record_types"].items()
         ],
     )
+    out += _next_steps_section(readiness["next_steps"])
     out += ["", "## Sources", ""]
     for source in readiness["sources"]:
         line = f"- {source['type']}: `{source['location']}`"
@@ -1035,16 +1319,32 @@ def render_markdown(readiness):
             line += f". {source['note']}"
         out.append(line)
     out += ["", "## Checks", ""]
+    out += [
+        "Status comes from measurements or answers. \"What the code shows\" is what the "
+        "workflow's code writes today; it does not change the status.",
+        "",
+    ]
     out += _table(
-        ["#", "Check", "Status", "Answered by", "Evidence"],
+        ["#", "Check", "Status", "Answered by", "Evidence", "What the code shows"],
         [
-            [index, CHECK_TITLES[check["id"]], check["status"], check["answered_by"], check["evidence"]]
+            [
+                index,
+                CHECK_TITLES[check["id"]],
+                check["status"],
+                check["answered_by"],
+                check["evidence"],
+                _code_cell(check["code"]),
+            ]
             for index, check in enumerate(readiness["checks"], 1)
         ],
     )
-    unresolved = [check for check in readiness["checks"] if check["answered_by"] == "unresolved"]
+    unresolved = [
+        check
+        for check in readiness["checks"]
+        if check["answered_by"] == "unresolved" and check["status"] != "not-measured"
+    ]
     if unresolved:
-        out += ["", "### Unresolved", ""]
+        out += ["", "### Needs an answer", ""]
         out += [f"- {CHECK_TITLES[check['id']]}: {check['evidence']}" for check in unresolved]
 
     out += [
@@ -1302,8 +1602,93 @@ def _matches(row, where):
     return all(str(_get(row, key)) == str(expected) for key, expected in (where or {}).items())
 
 
+def sqlite_target(path):
+    """Split `state.sqlite3#posts` into (database path, table); None for other files."""
+    if "#" in path.name and not path.is_file():
+        database, _, table = str(path).rpartition("#")
+        return Path(database), table
+    if path.suffix.lower() in SQLITE_SUFFIXES:
+        raise UsageError(
+            f"{path.name}: name a table as {path.name}#table (run list-tables to see them)"
+        )
+    return None
+
+
+def _sqlite_open(database):
+    if not database.is_file():
+        raise UsageError(f"no such file: {database}")
+    try:
+        connection = sqlite3.connect(f"file:{quote(str(database.resolve()))}?mode=ro", uri=True)
+        connection.execute("PRAGMA query_only = ON")
+        connection.execute("SELECT name FROM sqlite_master LIMIT 1").fetchall()
+    except sqlite3.Error:
+        raise UsageError(f"{database.name}: cannot be read as a SQLite database") from None
+    return connection
+
+
+def _sqlite_tables(connection):
+    return {
+        name: kind
+        for name, kind in connection.execute(
+            "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )
+    }
+
+
+def _sqlite_name(name):
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _sqlite_rows(database, table, where, columns):
+    connection = _sqlite_open(database)
+    try:
+        if table not in _sqlite_tables(connection):
+            raise UsageError(f"{database.name}: no table named {table}")
+        names = [row[1] for row in connection.execute(f"PRAGMA table_info({_sqlite_name(table)})")]
+        absent = sorted(set(columns) - set(names))
+        if absent:
+            raise UsageError(f"{database.name}#{table}: no column named {', '.join(absent)}")
+        try:
+            for values in connection.execute(f"SELECT * FROM {_sqlite_name(table)}"):
+                row = {
+                    name: f"<{len(value)} bytes>" if isinstance(value, bytes) else value
+                    for name, value in zip(names, values)
+                }
+                if _matches(row, where):
+                    yield row
+        except sqlite3.Error:
+            raise UsageError(f"{database.name}#{table}: could not be read") from None
+    finally:
+        connection.close()
+
+
+def list_tables(database):
+    """Table and column names with row counts. Metadata only, never values."""
+    connection = _sqlite_open(database)
+    try:
+        tables = []
+        for name, kind in _sqlite_tables(connection).items():
+            quoted = _sqlite_name(name)
+            columns = [
+                {"column": row[1], "declared_type": row[2] or None}
+                for row in connection.execute(f"PRAGMA table_info({quoted})")
+            ]
+            rows = connection.execute(f"SELECT COUNT(*) FROM {quoted}").fetchone()[0]
+            tables.append({"table": name, "type": kind, "rows": rows, "columns": columns})
+    except sqlite3.Error:
+        raise UsageError(f"{database.name}: cannot be read as a SQLite database") from None
+    finally:
+        connection.close()
+    return {"file": database.name, "tables": tables}
+
+
 def read_rows(path, where=None, columns=()):
     """Yield dict rows. Errors name the file and line, never the content."""
+    target = sqlite_target(path)
+    if target:
+        yield from _sqlite_rows(*target, where, columns)
+        return
     suffix = path.suffix.lower()
     if not path.is_file():
         raise UsageError(f"no such file: {path}")
@@ -1330,7 +1715,10 @@ def read_rows(path, where=None, columns=()):
                 if _matches(row, where):
                     yield row
     else:
-        raise UsageError(f"{path.name}: expected a .csv, .tsv, .jsonl or .ndjson file")
+        raise UsageError(
+            f"{path.name}: expected a .csv, .tsv, .jsonl or .ndjson file, or a SQLite table "
+            "written as database#table"
+        )
 
 
 def _normaliser(mapping, canonical, default):
@@ -1403,8 +1791,14 @@ def profile_files(decisions_path, actions_path, outcomes_path, columns, workflow
     for path in (decisions_path, actions_path, outcomes_path):
         if path and path.name not in objects:
             objects.append(path.name)
+    paths = [path for path in (decisions_path, actions_path, outcomes_path) if path]
+    all_sqlite = all("#" in path.name and not path.is_file() for path in paths)
     profile["sources"] = [
-        {"type": "files", "location": str(decisions_path.parent), "objects": objects}
+        {
+            "type": "sqlite" if all_sqlite else "files",
+            "location": str(decisions_path.parent),
+            "objects": objects,
+        }
     ]
 
     exposure_of = _normaliser(
@@ -1814,6 +2208,9 @@ def main(argv=None):
     template.add_argument("--as-of")
     template.add_argument("--out")
 
+    tables = commands.add_parser("list-tables", help="tables and column names of a SQLite file")
+    tables.add_argument("database", type=Path)
+
     listing = commands.add_parser("list-columns", help="column shapes, never values")
     listing.add_argument("files", nargs="+", type=Path)
     listing.add_argument(
@@ -1824,7 +2221,7 @@ def main(argv=None):
         help="also list the values of a status column the user named (category, kind, exposure)",
     )
 
-    files = commands.add_parser("profile-files", help="aggregate profile from CSV/JSONL exports")
+    files = commands.add_parser("profile-files", help="aggregate profile from exports or SQLite tables")
     files.add_argument("--decisions", required=True, type=Path)
     files.add_argument("--actions", type=Path)
     files.add_argument("--outcomes", type=Path)
@@ -1858,6 +2255,8 @@ def main(argv=None):
         if args.command == "template":
             profile = empty_profile(args.workflow, args.as_of)
             _write(json.dumps(profile, indent=2) + "\n", args.out)
+        elif args.command == "list-tables":
+            _write(json.dumps(list_tables(args.database), indent=2) + "\n", None)
         elif args.command == "list-columns":
             found = set()
             described = []

@@ -14,6 +14,7 @@
     "checks",
     "record_types",
     "verdict",
+    "next_steps",
     "volume",
     "label_estimate"
   ],
@@ -65,7 +66,42 @@
         "outcome": {"$ref": "#/$defs/record_type"}
       }
     },
-    "verdict": {"enum": ["mine-history", "partial", "log-forward-only"]},
+    "verdict": {"enum": ["mine-history", "partial", "log-forward-only", "not-measured"]},
+    "next_steps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measure", "start_logging", "then"],
+      "properties": {
+        "measure": {"type": "array", "items": {"type": "string"}},
+        "start_logging": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["check", "status", "basis", "advice", "changes"],
+            "properties": {
+              "check": {"type": "string"},
+              "status": {"enum": ["present", "partial", "missing", "not-measured"]},
+              "basis": {"type": "string"},
+              "advice": {"type": "string"},
+              "changes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["change", "file"],
+                  "properties": {
+                    "change": {"type": "string"},
+                    "file": {"type": ["string", "null"]}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "then": {"type": "string"}
+      }
+    },
     "volume": {"$ref": "#/$defs/volume"},
     "label_estimate": {"$ref": "#/$defs/label_estimate"}
   },
@@ -77,7 +113,7 @@
       "additionalProperties": false,
       "required": ["type", "location", "objects"],
       "properties": {
-        "type": {"enum": ["repository", "warehouse", "files", "unsupported"]},
+        "type": {"enum": ["repository", "warehouse", "files", "sqlite", "unsupported"]},
         "location": {"type": "string"},
         "objects": {"type": "array", "items": {"type": "string"}},
         "note": {"type": "string"}
@@ -86,7 +122,7 @@
     "check": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "status", "evidence", "answered_by"],
+      "required": ["id", "status", "evidence", "answered_by", "code"],
       "properties": {
         "id": {
           "enum": [
@@ -102,9 +138,20 @@
             "request_type_signal"
           ]
         },
-        "status": {"enum": ["present", "partial", "missing"]},
+        "status": {"enum": ["present", "partial", "missing", "not-measured"]},
         "evidence": {"type": "string"},
-        "answered_by": {"enum": ["probe", "user", "code", "unresolved"]}
+        "answered_by": {"enum": ["probe", "user", "code", "unresolved"]},
+        "code": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["finding", "files", "since", "suggests"],
+          "properties": {
+            "finding": {"type": "string"},
+            "files": {"type": "array", "items": {"type": "string"}},
+            "since": {"type": ["string", "null"]},
+            "suggests": {"enum": ["present", "partial", "missing"]}
+          }
+        }
       }
     },
     "record_type": {
@@ -112,7 +159,7 @@
       "additionalProperties": false,
       "required": ["status", "reasons"],
       "properties": {
-        "status": {"enum": ["minable", "partial", "not-minable"]},
+        "status": {"enum": ["minable", "partial", "not-minable", "not-measured"]},
         "reasons": {"type": "array", "items": {"type": "string"}}
       }
     },

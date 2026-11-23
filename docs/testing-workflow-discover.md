@@ -75,10 +75,11 @@ It then measures the stored history:
 - **In files** (CSV or JSONL), if that is where the job writes or if you
   export them. Each row needs a run or decision ID so the three kinds of
   record can be joined.
-- **Only in Hermes's own session or log store**: the skill will tell you which
-  export it needs (JSONL, one line per run with an ID, a timestamp and the
-  output). Without one it records the store as unsupported and reports from
-  the code alone.
+- **In a SQLite database** on that machine, such as the job's own state file.
+  The skill reads it directly and read-only; no export is needed.
+- **Somewhere it cannot read**: the skill tells you which export it needs
+  (JSONL, one line per run with an ID, a timestamp and the output). Without
+  one it reports from the code alone, with the verdict `not-measured`.
 
 If no person reviews the job's output, the report shows the human-action
 checks as missing. That is a correct result, and it tells you what to start
@@ -101,8 +102,9 @@ What to expect:
    what later shows that a run's output was right or wrong (a later reply, a
    status in another system, an audit), where that is stored and how long it
    takes. "Nothing like this exists yet" is a valid answer.
-4. It asks you to confirm where to measure the records, then measures. For files it runs `list-columns` and `profile-files`; for a
-   warehouse it runs aggregate `SELECT` queries.
+4. It asks you to confirm where to measure the records, then measures. For
+   files and SQLite it runs `list-tables`, `list-columns` and
+   `profile-files`; for a warehouse it runs aggregate `SELECT` queries.
 5. It asks a few choice questions where the evidence is ambiguous, for example
    which column is the suggestion, or whether the stored output is what the
    reviewer saw. If seeing a few example rows would help, it asks once whether
@@ -128,8 +130,14 @@ hindsight-discovery/<workflow>/readiness.md
   for a phrase you know is in the data; it should not be there, whether or not
   you consented. Reviewer IDs should never appear anywhere.
 - **The verdict follows from the checks.** Read `readiness.md`: the verdict is
-  one of `mine-history`, `partial`, `log-forward-only`, with all ten checks
-  listed and a status for Decision, HumanAction and Outcome.
+  one of `mine-history`, `partial`, `log-forward-only`, `not-measured`, with
+  all ten checks listed and a status for Decision, HumanAction and Outcome.
+  Nothing that was not measured should be reported as `missing`.
+- **The next steps are usable.** "What to do next" near the top lists what to
+  measure and what to start logging, with specific changes naming files in
+  the job's repository.
+- **Code findings sit beside the checks**, in the "What the code shows"
+  column, not in a long note under Sources.
 - **The file validates:**
 
   ```bash
