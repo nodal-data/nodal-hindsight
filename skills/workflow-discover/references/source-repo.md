@@ -56,6 +56,41 @@ has logged exposure for two months says nothing about the four months before.
 - **Add the repository to `sources`** in the profile: type `repository`, the
   repository name or path as `location`, and the files you relied on as
   `objects`.
+- **Record what the code shows for every check you traced.** One entry per
+  check in the profile's `code_findings`:
+
+  ```json
+  {
+    "check": "reviewer_id",
+    "finding": "Reactions are filtered to one configured user; no actor is stored per action.",
+    "files": ["x/feedback.py"],
+    "since": "2026-08-07",
+    "suggests": "missing"
+  }
+  ```
+
+  `finding` is one or two sentences about what the code writes today.
+  `since` is the date Git history shows that behaviour began, when you can
+  tell. `suggests` is the status the data would have if it matched the code:
+  `present`, `partial` or `missing`. A finding does not change the check's
+  status; it appears next to it in the report, so a history that could not
+  be measured still shows what the code does.
+- **Record the changes that would close each gap** in `logging_changes`, one
+  entry per change, naming the file to change:
+
+  ```json
+  {
+    "check": "reviewer_id",
+    "change": "Store the reacting user's ID on each feedback row.",
+    "file": "x/feedback.py"
+  }
+  ```
+
+  Be specific to this code: the field to add and where it is written. The
+  report lists these under "Start logging", most valuable check first. Do not
+  make the changes yourself.
+- **Keep source notes short.** A note is at most 300 characters and describes
+  the source. Findings and recommendations go in the two lists above.
 - **Let the code settle a check only when it can.** A code finding goes into
   the profile's `answers` list with `"source": "code"`, citing the file, when
   both of these hold: the code is unambiguous, and Git history shows it has
@@ -75,7 +110,8 @@ has logged exposure for two months says nothing about the four months before.
 
 Some workflows keep nothing outside the agent framework's session or log
 store. The code or the framework's configuration will show where that store
-is and what format it uses. If it is a set of JSONL or CSV files, or a table,
-treat it as a file or warehouse source. If it is something else, tell the user
+is and what format it uses. If it is a set of JSONL or CSV files, a SQLite
+database, or a warehouse table, measure it as a file or warehouse source
+(`references/source-files.md` covers SQLite). If it is something else, tell the user
 which export would be needed (one line per run with an ID, a timestamp and the
 output, as JSONL) and record the source as `unsupported` with that note.

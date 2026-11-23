@@ -1,6 +1,6 @@
 # The ten checks
 
-Each check is reported as `present`, `partial` or `missing`, with its evidence
+Each check is reported as `present`, `partial`, `missing` or `not-measured`, with its evidence
 and who settled it: `probe`, `user` (an answer from step 4), `code` (a finding
 in the workflow's repository, see `references/source-repo.md`) or `unresolved`.
 `scripts/readiness.py build` applies the rules below from the profile; this
@@ -8,8 +8,13 @@ file tells you what each check needs and which questions resolve ambiguity.
 
 Coverage thresholds, unless a check says otherwise: at least 95% is `present`,
 at least 50% is `partial`, below that is `missing`. A field left `null` in the
-profile was not measured, so its check is `missing` and `unresolved`. A field
-set to `0` was measured and is absent, so its check is `missing` by `probe`.
+profile was not measured, so its check is `not-measured`. A field set to `0`
+was measured and is absent, so its check is `missing` by `probe`. Never set a
+field to `0` because you could not measure it.
+
+What the code shows for a check (`code_findings` in the profile, see
+`references/source-repo.md`) is reported beside its status and does not
+change it.
 
 Field names in the right-hand column are the Hindsight record fields this
 check feeds.
@@ -186,6 +191,9 @@ Can request classes be derived, so a router can be certified class by class?
 
 `build` rolls the checks up per record type, then to one verdict.
 
+A record type is `not-measured` when none of its blocking items is `missing`
+and at least one was not measured.
+
 | Record type | `not-minable` when | `partial` when | Reported but not blocking |
 |---|---|---|---|
 | Decision | check 1 or 2 is `missing`, or `decided_at` is under 50% | check 1 or 2 is `partial`, or `decided_at` is under 95% | checks 6, 7, 10 |
@@ -195,8 +203,12 @@ Can request classes be derived, so a router can be certified class by class?
 | Verdict | Rule |
 |---|---|
 | `log-forward-only` | Decision is `not-minable` |
+| `not-measured` | otherwise, Decision or HumanAction is `not-measured` |
 | `mine-history` | Decision and HumanAction are both `minable` |
 | `partial` | anything else |
+
+`not-measured` is not a judgement on the history. It means the stores could
+not be profiled, and the report's next steps say what to measure.
 
 The Outcome record type is reported next to the verdict and does not change
 it.

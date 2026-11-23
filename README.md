@@ -45,11 +45,11 @@ Then ask Claude to assess a workflow, for example "check whether our prior-auth 
 
 1. Asks which workflow it is and for the repository that runs it (a local path or a URL to clone), then reads the code to find where the suggestion, the human action and the outcome are written.
 2. Explains why a reviewer's approval is weak evidence and agrees with the user what the later outcome is (a customer's later response, a status in another system, an audit), where it is stored and how long it takes to arrive.
-3. Measures the stored history in a warehouse (Snowflake, BigQuery) or CSV/JSONL exports, with the connection the session already has and aggregates by default. It does not select or print message bodies or other free text unless the user confirms the agent is approved to read row content; then it may view a few truncated sample rows in the session. No row content is written to the report either way, and every query is read-only. Other stores are recorded as not yet supported.
+3. Measures the stored history in a warehouse (Snowflake, BigQuery), CSV/JSONL exports or a SQLite database, with the connection the session already has and aggregates by default. It does not select or print message bodies or other free text unless the user confirms the agent is approved to read row content; then it may view a few truncated sample rows in the session. No row content is written to the report either way, and every query is read-only. Other stores are recorded as not yet supported.
 4. Asks choice-based questions only where the evidence is ambiguous.
 5. Writes `hindsight-discovery/<workflow>/readiness.md` and `readiness.json` in the current directory.
 
-The report covers ten checks (suggestion stored separately, not overwritten, exposure, timestamps, reviewer ID, policy identity, frozen context, outcome join, volume and accept rate, request-type signal), a status for each record type (Decision, HumanAction, Outcome), and one verdict: `mine-history`, `partial` or `log-forward-only`. Accept rates in the report are descriptive; they are not evidence that suggestions were correct.
+The report covers ten checks (suggestion stored separately, not overwritten, exposure, timestamps, reviewer ID, policy identity, frozen context, outcome join, volume and accept rate, request-type signal), a status for each record type (Decision, HumanAction, Outcome), and one verdict: `mine-history`, `partial`, `log-forward-only`, or `not-measured` when the stores could not be profiled. It also says what to do next: what to measure, and what to start logging, most valuable first, with the specific code changes the skill found. Accept rates in the report are descriptive; they are not evidence that suggestions were correct.
 
 ## Commands
 

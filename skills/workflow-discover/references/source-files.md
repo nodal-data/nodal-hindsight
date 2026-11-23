@@ -1,12 +1,35 @@
 # Source: file exports
 
-Use this when the workflow history is in CSV, TSV or JSONL files on this
-machine. `scripts/readiness.py` reads the files and computes every aggregate
+Use this when the workflow history is in CSV, TSV or JSONL files, or in a
+SQLite database, on this machine. `scripts/readiness.py` reads the files and computes every aggregate
 locally. Row content never enters the conversation, so do not open the files
 any other way. The one exception is the `sample` command, which needs the
 user's consent first: see `references/content-samples.md`.
 
 Commands below write `<skill-dir>` for the directory holding `SKILL.md`.
+
+## SQLite databases
+
+A local agent job often keeps its history in a SQLite file, and so do some
+agent frameworks. The script reads it directly, read-only, so no export is
+needed. List the tables first:
+
+```bash
+python3 <skill-dir>/scripts/readiness.py list-tables state.sqlite3
+```
+
+This prints table and view names, row counts, and column names with their
+declared types. It prints no values. Then name a table as `database#table`
+anywhere a file is accepted below:
+
+```bash
+python3 <skill-dir>/scripts/readiness.py list-columns 'state.sqlite3#posts'
+```
+
+Quote the argument so the shell does not treat `#` as a comment. The
+decisions, actions and outcomes can be three tables of one database, or a mix
+of tables and files. Do not open the database with `sqlite3`, a database
+browser or your own queries; the same fences apply as for exports.
 
 ## 1. Describe the columns
 
@@ -132,5 +155,13 @@ step 5).
   few million rows are fine; for more, profile a recent date range.
 - A decision ID repeated in the decisions file keeps its last row; the share
   of repeats is reported.
-- A mapped column that does not exist in a CSV header is an error. In JSONL a
+- A SQLite table is read whole, one table per role. If the records for one
+  role are spread across tables that need a join, ask the user for a view or
+  an export; do not write the join yourself.
+- JSON stored as text in a SQLite column is treated as one text value.
+- The database is opened read-only and its contents are never changed. For a
+  database in write-ahead-log mode, SQLite itself may create `-wal` and `-shm`
+  files beside it while reading; that is normal and safe while the job runs.
+- A mapped column that does not exist in a CSV header or a SQLite table is an
+  error. In JSONL a
   missing key simply reports zero coverage.

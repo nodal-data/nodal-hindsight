@@ -4,6 +4,7 @@ import json
 import math
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -199,9 +200,21 @@ def test_unmeasured_profile_is_unresolved_not_usable():
         }
     ]
     result = readiness.build_readiness(profile)
-    assert result["verdict"] == "log-forward-only"
+    # Nothing measured is not a finding that the history is unusable.
+    assert result["verdict"] == "not-measured"
+    assert {check["status"] for check in result["checks"]} == {"not-measured"}
     assert {check["answered_by"] for check in result["checks"]} == {"unresolved"}
-    assert "No stored history was measured" in readiness.render_markdown(result)
+    assert {value["status"] for value in result["record_types"].values()} == {"not-measured"}
+    jsonschema.validate(result, SCHEMA)
+    text = readiness.render_markdown(result)
+    assert "has not been measured" in text
+    assert "cannot be mined" not in text
+    assert "Needs an export of traces to JSONL." in result["next_steps"]["measure"][0]
+
+    # Measured and absent is still a real finding.
+    profile["decisions"]["rows"] = 500
+    profile["decisions"]["suggestion_coverage"] = 0.0
+    assert readiness.build_readiness(profile)["verdict"] == "log-forward-only"
 
 
 def test_report_never_calls_accept_history_correctness():
@@ -685,3 +698,198 @@ def test_outcome_signals_are_validated(change, message):
     profile["outcome_signals"] = [{**signal, **change}]
     with pytest.raises(readiness.UsageError, match=message):
         readiness.build_readiness(profile)
+
+
+def code_only_profile():
+    """Shaped like a real run: the code was read, the store could not be measured."""
+    profile = readiness.empty_profile("article-discovery", "2026-11-22")
+    profile["sources"] = [
+        {"type": "repository", "location": "ops-repo", "objects": ["x/store.py", "x/feedback.py"]},
+        {
+            "type": "unsupported",
+            "location": "trace platform",
+            "objects": [],
+            "note": "Needs a JSONL export with decision IDs and timestamps.",
+        },
+    ]
+    profile["code_findings"] = [
+        {
+            "check": "suggestion_separate",
+            "finding": "posts holds score and reason apart from the feedback in digests.",
+            "files": ["x/store.py"],
+            "since": "2026-08-07",
+            "suggests": "present",
+        },
+        {
+            "check": "reviewer_id",
+            "finding": "Reactions are filtered to one configured user; no actor is stored.",
+            "files": ["x/feedback.py"],
+            "suggests": "missing",
+        },
+        {
+            "check": "policy_identity",
+            "finding": "No model, prompt or code version is written with a post.",
+            "suggests": "missing",
+        },
+    ]
+    profile["logging_changes"] = [
+        {
+            "check": "reviewer_id",
+            "change": "Write the reacting user's ID with each feedback row.",
+            "file": "x/feedback.py",
+        },
+        {"check": "policy_identity", "change": "Add model and prompt_version columns to posts."},
+    ]
+    return profile
+
+
+def test_code_findings_inform_without_settling_and_drive_next_steps():
+    result = readiness.build_readiness(code_only_profile())
+    jsonschema.validate(result, SCHEMA)
+    assert not readiness.check_readiness(result)
+    assert result["verdict"] == "not-measured"
+    checks = {check["id"]: check for check in result["checks"]}
+    assert checks["suggestion_separate"]["status"] == "not-measured"  # code does not settle it
+    assert checks["suggestion_separate"]["code"]["suggests"] == "present"
+    assert checks["exposure_known"]["code"] is None
+
+    steps = result["next_steps"]
+    assert any("trace platform" in item for item in steps["measure"])
+    assert any("suggestion_separate" in item for item in steps["measure"])
+    logging = {item["check"]: item for item in steps["start_logging"]}
+    # Gaps the code shows are listed; a check the code suggests is fine is not.
+    assert list(logging) == ["reviewer_id", "policy_identity"]
+    assert logging["reviewer_id"]["basis"] == "code, not yet measured"
+    assert logging["reviewer_id"]["changes"] == [
+        {"change": "Write the reacting user's ID with each feedback row.", "file": "x/feedback.py"}
+    ]
+    assert "profile.json" in steps["then"]
+
+    text = readiness.render_markdown(result)
+    assert text.index("## What to do next") < text.index("## Sources")
+    assert "1 look present, 2 look missing" in text
+    assert "Suggests present since 2026-08-07" in text
+    assert "Write the reacting user's ID with each feedback row. (`x/feedback.py`)" in text
+    assert "### Needs an answer" not in text
+
+
+def test_measured_gaps_are_ordered_most_valuable_first():
+    profile = healthy_profile()
+    profile["decisions"].update(
+        policy_model_coverage=0.0, policy_prompt_version_coverage=0.0, policy_code_version_coverage=0.0
+    )
+    exposure_missing(profile)
+    steps = readiness.build_readiness(profile)["next_steps"]
+    assert steps["measure"] == []
+    assert [item["check"] for item in steps["start_logging"]] == ["exposure_known", "policy_identity"]
+    assert {item["basis"] for item in steps["start_logging"]} == {"measured"}
+
+    healthy = readiness.build_readiness(healthy_profile())
+    assert healthy["next_steps"]["start_logging"] == []
+    assert "Nothing to add" in readiness.render_markdown(healthy)
+
+
+@pytest.mark.parametrize(
+    "key, entry, message",
+    [
+        ("code_findings", {"check": "nope", "finding": "x", "suggests": "present"}, "check must be"),
+        ("code_findings", {"check": "timestamps", "finding": "x", "suggests": "fine"}, "suggests"),
+        (
+            "code_findings",
+            {"check": "timestamps", "finding": "x", "suggests": "present", "since": "August"},
+            "since must be",
+        ),
+        ("code_findings", {"check": "timestamps", "finding": "x" * 401, "suggests": "partial"}, "at most"),
+        ("logging_changes", {"check": "timestamps", "change": ""}, "non-empty"),
+        ("logging_changes", {"check": "timestamps", "change": "x", "row": "y"}, "unknown key: row"),
+    ],
+)
+def test_code_findings_and_logging_changes_are_validated(key, entry, message):
+    profile = healthy_profile()
+    profile[key] = [entry]
+    with pytest.raises(readiness.UsageError, match=message):
+        readiness.build_readiness(profile)
+
+
+def test_long_source_notes_are_rejected_in_favour_of_structured_fields():
+    profile = healthy_profile()
+    profile["sources"][0]["note"] = "x" * 301
+    with pytest.raises(readiness.UsageError, match="code_findings"):
+        readiness.build_readiness(profile)
+
+
+@pytest.fixture(scope="module")
+def sqlite_copy(tmp_path_factory):
+    """The raw fixtures loaded into one SQLite database, values unchanged."""
+    path = tmp_path_factory.mktemp("sqlite") / "state.sqlite3"
+    connection = sqlite3.connect(path)
+    for table, name in (
+        ("posts", "decisions.csv"),
+        ("feedback", "actions.jsonl"),
+        ("results", "outcomes.jsonl"),
+    ):
+        rows = list(readiness.read_rows(FIXTURES / name))
+        names = list(dict.fromkeys(key for row in rows for key in row))
+        quoted = ", ".join(f'"{key}"' for key in names)
+        connection.execute(f"CREATE TABLE {table} ({quoted})")
+        connection.executemany(
+            f"INSERT INTO {table} VALUES ({', '.join('?' for _ in names)})",
+            [[row.get(key) for key in names] for row in rows],
+        )
+    connection.commit()
+    connection.close()
+    return path
+
+
+def test_sqlite_tables_profile_like_the_same_exports(fixture_profile, sqlite_copy, tmp_path):
+    out = tmp_path / "profile.json"
+    before = sqlite_copy.read_bytes()
+    result = run(
+        "profile-files",
+        "--decisions", f"{sqlite_copy}#posts",
+        "--actions", f"{sqlite_copy}#feedback",
+        "--outcomes", f"{sqlite_copy}#results",
+        "--columns", FIXTURES / "columns.json",
+        "--workflow", "fixture-workflow",
+        "--as-of", "2026-11-22",
+        "--out", out,
+    )  # fmt: skip
+    assert result.returncode == 0, result.stderr
+    from_sqlite = json.loads(out.read_text())
+    from_files = json.loads(fixture_profile[0].read_text())
+    assert from_sqlite["sources"][0]["type"] == "sqlite"
+    assert from_sqlite["sources"][0]["objects"] == [
+        "state.sqlite3#posts",
+        "state.sqlite3#feedback",
+        "state.sqlite3#results",
+    ]
+    for section in ("decisions", "actions", "outcomes"):
+        assert from_sqlite[section] == from_files[section]
+    assert sqlite_copy.read_bytes() == before  # opened read-only
+    assert sorted(path.name for path in sqlite_copy.parent.iterdir()) == ["state.sqlite3"]
+    for word in FORBIDDEN:
+        assert word not in out.read_text() + result.stdout + result.stderr
+
+
+def test_sqlite_listing_shows_names_and_shapes_never_values(sqlite_copy):
+    tables = run("list-tables", sqlite_copy)
+    assert tables.returncode == 0, tables.stderr
+    listed = {table["table"]: table for table in json.loads(tables.stdout)["tables"]}
+    assert set(listed) == {"posts", "feedback", "results"}
+    assert listed["posts"]["rows"] == 10
+    assert "ai_draft" in [column["column"] for column in listed["posts"]["columns"]]
+
+    columns = run("list-columns", f"{sqlite_copy}#posts", "--values", "queue")
+    assert columns.returncode == 0, columns.stderr
+    described = {c["column"]: c for c in json.loads(columns.stdout)[0]["columns"]}
+    assert [item["value"] for item in described["queue"]["values"]] == ["refill", "billing", "scheduling"]
+    for word in FORBIDDEN:
+        assert word not in tables.stdout + columns.stdout
+
+    no_table = run("list-columns", sqlite_copy)
+    assert no_table.returncode != 0 and "list-tables" in no_table.stderr
+    wrong = run("list-columns", f"{sqlite_copy}#nope")
+    assert wrong.returncode != 0 and "no table named nope" in wrong.stderr
+    not_a_database = run("list-tables", FIXTURES / "decisions.csv")
+    assert not_a_database.returncode != 0
+    assert "SENTINEL" not in not_a_database.stdout + not_a_database.stderr

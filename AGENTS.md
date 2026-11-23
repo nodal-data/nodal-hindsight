@@ -82,7 +82,10 @@ Skill rules, which the tests enforce where they can:
   `--consent-given`) or that file's one warehouse probe, at most 5 rows per look and
   20 per session, cut at 300 characters, session only. The profile records the consent
   and the rows viewed in `content_access`.
-- Read-only. Every fenced `sql` block in `references/source-warehouse.md` is a single
+- Not measured is never reported as missing. A `null` profile field gives a
+  `not-measured` check, and a history that could not be profiled gives a `not-measured`
+  verdict.
+- Read-only. SQLite files are opened read-only by the script. Every fenced `sql` block in `references/source-warehouse.md` is a single
   `SELECT` or `WITH` statement. The workflow's repository is read, never changed or run.
 - No credentials are requested, read or stored.
 - Accept-history is never described as correctness.
